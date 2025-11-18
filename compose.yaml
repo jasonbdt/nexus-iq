@@ -1,0 +1,33 @@
+services:
+  database:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_PASSWORD: geheim2
+      POSTGRES_DB: nexus_iq
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  pgadmin:
+    depends_on:
+      - database
+    image: dpage/pgadmin4
+    ports:
+      - 8001:80
+    volumes:
+      - pgadmindata:/var/lib/pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ja.bladt@gmail.com
+      PGADMIN_DEFAULT_PASSWORD: geheim2
+
+  backend:
+    depends_on:
+      - database
+    build: .
+    image: nexus-iq/backend
+    ports:
+      - 8000:8000
+
+volumes:
+  backend:
+  pgdata:
+  pgadmindata:
