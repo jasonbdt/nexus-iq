@@ -22,6 +22,16 @@ def index():
         "message": "It work's!"
     }
 
+
+@app.post("/users/")
+def create_user(user: User, session: SessionDep):
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+
+    return user
+
+
 @app.get("/users")
 def get_all_users(
     session: SessionDep,
