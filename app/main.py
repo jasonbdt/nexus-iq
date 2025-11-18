@@ -47,3 +47,18 @@ def get_user(user_id: int, session: SessionDep):
         "message": "Success",
         "user": user
     }
+
+
+@app.delete("/users/{user_id}")
+def delete_user(user_id: int, session: SessionDep):
+    user = session.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    session.delete(user)
+    session.commit()
+
+    return {
+        "status": 200,
+        "message": "Success"
+    }
