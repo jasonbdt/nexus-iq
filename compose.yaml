@@ -20,6 +20,7 @@ services:
       PGADMIN_DEFAULT_PASSWORD: geheim2
 
   backend:
+    env_file: ".env"
     depends_on:
       - database
     build: .
