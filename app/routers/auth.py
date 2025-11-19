@@ -1,7 +1,10 @@
 from typing import Annotated
 from datetime import timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import status
+from fastapi.exceptions import HTTPException
+from fastapi.params import Depends
+from fastapi.routing import APIRouter
 from fastapi.security import OAuth2PasswordRequestForm
 
 from sqlalchemy.exc import IntegrityError
