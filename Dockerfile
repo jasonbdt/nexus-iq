@@ -11,4 +11,4 @@ LABEL authors="Jason Bladt"
 
 COPY ./app ./
 
-CMD ["fastapi", "run", "./main.py"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
