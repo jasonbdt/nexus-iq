@@ -15,9 +15,9 @@ from sqlalchemy.exc import NoResultFound
 from pwdlib import PasswordHash
 from pwdlib.exceptions import UnknownHashError
 
-from app.internal.db import SessionDep
-from app.internal.models import User
 from ..dependencies import JWT_SECRET, JWT_ALGORITHM
+from .db import SessionDep
+from .models import User
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 password_hash = PasswordHash.recommended()

@@ -3,9 +3,9 @@ from typing import Annotated
 from fastapi import Depends
 from sqlmodel import create_engine, Session, SQLModel
 
-from app.internal.models import User
 from ..dependencies import DATABASE_URL
 from .logging import get_logger
+from .models import User
 
 logger = get_logger(__name__)
 
