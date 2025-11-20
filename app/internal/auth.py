@@ -1,9 +1,7 @@
-import os
 from typing import Annotated
 from datetime import datetime, timedelta, timezone
 
 import jwt
-from dotenv import load_dotenv
 from fastapi import status
 from fastapi.exceptions import HTTPException
 from fastapi.params import Depends
@@ -19,12 +17,7 @@ from pwdlib.exceptions import UnknownHashError
 
 from app.internal.db import SessionDep
 from app.internal.models import User
-load_dotenv()
-
-
-JWT_SECRET = os.getenv("JWT_SECRET")
-JWT_ALGORITHM = "HS256"
-JWT_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRES_IN"))
+from ..dependencies import JWT_SECRET, JWT_ALGORITHM
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 password_hash = PasswordHash.recommended()

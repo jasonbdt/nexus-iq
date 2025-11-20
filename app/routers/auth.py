@@ -9,8 +9,9 @@ from fastapi.security import OAuth2PasswordRequestForm
 
 from sqlalchemy.exc import IntegrityError
 
-from ..internal.auth import JWT_TOKEN_EXPIRE_MINUTES, Token, \
-    authenticate_user, create_access_token, get_password_hash
+from ..dependencies import JWT_TOKEN_EXPIRE_MINUTES
+from ..internal.auth import Token, authenticate_user, create_access_token, \
+    get_password_hash
 from ..internal.db import SessionDep
 from ..internal.models import User, UserResponse, UserSignUpRequest
 

@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from .internal.db import create_db_and_tables
 from .routers import auth, users
 from .internal.logging import configure_logging
+from .dependencies import APP_ENV
 
 
 @asynccontextmanager

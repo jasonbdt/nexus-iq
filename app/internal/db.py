@@ -1,18 +1,12 @@
 from typing import Annotated
-import os
 
 from fastapi import Depends
 from sqlmodel import create_engine, Session, SQLModel
-from dotenv import load_dotenv
 
 from app.internal.models import User
-load_dotenv()
+from ..dependencies import DATABASE_URL
 from .logging import get_logger
 
-DB_USER = os.getenv("DATABASE_USER")
-DB_NAME = os.getenv("DATABASE_NAME")
-DB_PASSWORD = os.getenv("DATABASE_PASSWORD")
-DATABASE_URL=f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@nexus-iq-database-1/{DB_NAME}"
 logger = get_logger(__name__)
 
 try:
