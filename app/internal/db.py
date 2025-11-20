@@ -10,7 +10,7 @@ from .models import User
 logger = get_logger(__name__)
 
 try:
-    engine = create_engine(DATABASE_URL, echo=True)
+    engine = create_engine(DATABASE_URL)
 except Exception as err:
     print("Error", err)
 
