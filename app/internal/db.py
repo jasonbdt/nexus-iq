@@ -7,11 +7,13 @@ from dotenv import load_dotenv
 
 from app.internal.models import User
 load_dotenv()
+from .logging import get_logger
 
 DB_USER = os.getenv("DATABASE_USER")
 DB_NAME = os.getenv("DATABASE_NAME")
 DB_PASSWORD = os.getenv("DATABASE_PASSWORD")
 DATABASE_URL=f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@nexus-iq-database-1/{DB_NAME}"
+logger = get_logger(__name__)
 
 try:
     engine = create_engine(DATABASE_URL, echo=True)
@@ -21,6 +23,7 @@ except Exception as err:
 
 def create_db_and_tables() -> None:
     SQLModel.metadata.create_all(engine)
+    logger.info("Database tables created successfully")
 
 
 def get_session():
