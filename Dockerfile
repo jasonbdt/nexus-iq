@@ -5,10 +5,10 @@ WORKDIR /usr/src/app
 ENV TZ="Europe/Berlin"
 
 COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade -r requirements.txt
 
 LABEL authors="Jason Bladt"
 
 COPY ./app ./
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["fastapi", "run", "./main.py"]
