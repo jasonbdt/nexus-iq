@@ -17,7 +17,11 @@ async def lifespan(app: FastAPI):
     create_db_and_tables()
     yield
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(
+    lifespan=lifespan,
+    redoc_url=None
+)
+
 app.include_router(auth.router)
 app.include_router(users.router)
 
