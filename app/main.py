@@ -18,6 +18,7 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(
+    root_path="/api/v1",
     lifespan=lifespan,
     redoc_url=None
 )
