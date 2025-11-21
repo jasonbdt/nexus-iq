@@ -9,7 +9,8 @@ services:
 
   pgadmin:
     depends_on:
-      - database
+      database:
+        condition: service_started
     image: dpage/pgadmin4
     ports:
       - 8001:80
@@ -22,7 +23,8 @@ services:
   backend:
     env_file: ".env"
     depends_on:
-      - database
+      database:
+        condition: service_started
     build: .
     image: nexus-iq/backend
     ports:
