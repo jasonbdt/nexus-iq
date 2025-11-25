@@ -1,4 +1,12 @@
 services:
+  backend:
+    build:
+      context: .
+    env_file: ".env"
+    image: nexus-iq/backend
+    ports:
+      - 8000:8000
+
   database:
     image: postgres:18-alpine
     environment:
@@ -7,30 +15,5 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
-  pgadmin:
-    depends_on:
-      database:
-        condition: service_started
-    image: dpage/pgadmin4
-    ports:
-      - 8001:80
-    volumes:
-      - pgadmindata:/var/lib/pgadmin
-    environment:
-      PGADMIN_DEFAULT_EMAIL: ja.bladt@gmail.com
-      PGADMIN_DEFAULT_PASSWORD: geheim2
-
-  backend:
-    env_file: ".env"
-    depends_on:
-      database:
-        condition: service_started
-    build: .
-    image: nexus-iq/backend
-    ports:
-      - 8000:8000
-
 volumes:
-  backend:
   pgdata:
-  pgadmindata:

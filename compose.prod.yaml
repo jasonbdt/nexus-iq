@@ -1,0 +1,6 @@
+services:
+  backend:
+    command:
+      - fastapi
+      - run
+      - ./app/main.py

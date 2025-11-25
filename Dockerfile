@@ -1,14 +1,18 @@
-FROM python:3.14.0-alpine3.22
+FROM python:3.13.0-alpine3.20
 
-WORKDIR /usr/src/app
+LABEL image.authors="Jason Bladt" \
+      version="1.0.0"
 
-ENV TZ="Europe/Berlin"
+WORKDIR /usr/src
 
 COPY requirements.txt ./
 RUN pip install --no-cache-dir --upgrade -r requirements.txt
 
-LABEL authors="Jason Bladt"
+# WORKDIR /usr/src/app
 
-COPY ./app ./
+COPY ./app app/
+EXPOSE 8000
 
-CMD ["fastapi", "run", "./main.py"]
+USER guest
+
+CMD ["uvicorn", "app.main:app", "--reload-dir", "/usr/src/app"]
