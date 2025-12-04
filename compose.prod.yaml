@@ -4,3 +4,4 @@ services:
       - fastapi
       - run
       - ./app/main.py
+    env_file: ".env.prod"

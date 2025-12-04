@@ -8,11 +8,9 @@ WORKDIR /usr/src
 COPY requirements.txt ./
 RUN pip install --no-cache-dir --upgrade -r requirements.txt
 
-# WORKDIR /usr/src/app
-
 COPY ./app app/
 EXPOSE 8000
 
 USER guest
 
-CMD ["uvicorn", "app.main:app", "--reload-dir", "/usr/src/app"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/usr/src/app"]

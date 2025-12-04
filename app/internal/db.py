@@ -17,7 +17,7 @@ except Exception as err:
 
 def create_db_and_tables() -> None:
     SQLModel.metadata.create_all(engine)
-    logger.info("Database tables created successfully")
+    logger.debug("Database tables created successfully")
 
 
 def get_session():

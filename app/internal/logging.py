@@ -9,7 +9,7 @@ def configure_logging(level: int = logging.NOTSET) -> None:
         stream=sys.stdout
     )
     logger = get_logger(__name__)
-    logger.info("Application Logger initialized")
+    logger.debug("Application Logger initialized")
 
 
 def get_logger(name: str) -> logging.Logger:

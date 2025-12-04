@@ -22,7 +22,7 @@ The goal: turn raw match data into actionable insights about your macro, micro a
 ```bash
 git clone https://github.com/jasonbdt/nexus-iq.git
 cd nexus-iq
-docker compose up --build
+docker compose up -d --build
 ```
 
 Once running, you’ll have the base backend for the future League of Legends AI coach.
