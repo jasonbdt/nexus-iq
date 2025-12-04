@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .internal.db import create_db_and_tables
 from .internal.logging import configure_logging
 from .dependencies import APP_ENV
-from .routers import auth, summoners, users
+from .routers import auth, matches, summoners, users
 
 
 @asynccontextmanager
@@ -25,6 +25,7 @@ app = FastAPI(
 
 app.include_router(auth.router)
 app.include_router(summoners.router)
+app.include_router(matches.router)
 app.include_router(users.router)
 
 origins = ["*"]
