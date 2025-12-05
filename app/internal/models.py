@@ -83,7 +83,6 @@ class Summoner(SQLModel, table=True):
 
 class SummonerLeagues(SQLModel, table=True):
     __tablename__ = "summoner_leagues"
-    _time_factory = datetime.now()
 
     id: int | None = Field(default=None, primary_key=True)
     summoner_id: int = Field(nullable=False, foreign_key="summoners.id")
@@ -108,6 +107,32 @@ class SummonerLeagues(SQLModel, table=True):
     @property
     def win_rate(self: Self) -> float:
         return self.game_wins / self.total_games * 100
+
+
+class Match(SQLModel, table=True):
+    __tablename__ = "matches"
+
+    id: int | None = Field(default=None, primary_key=True)
+    match_id: str = Field(index=True, unique=True, nullable=False)
+
+    platform: str = Field(nullable=False)
+    queue_id: int = Field(nullable=False)
+
+    game_mode: str = Field(nullable=False)
+    game_type: str = Field(nullable=False)
+    game_version: str = Field(nullable=False)
+
+    map_id: int = Field(nullable=False)
+
+    game_start: datetime = Field(
+        sa_column=Column(DateTime(timezone=True), nullable=False)
+    )
+
+    game_end: Optional[datetime] = Field(
+        sa_column=Column(DateTime(timezone=True))
+    )
+
+    game_duration: int = Field(nullable=False)
 
 
 class SummonerLeaguesRead(BaseModel):
