@@ -92,8 +92,8 @@ class SummonerLeagues(SQLModel, table=True):
     tier: str = Field(nullable=False)
     rank: str = Field(nullable=False)
 
-    game_wins: int = Field(nullable=False)
-    game_losses: int = Field(nullable=False)
+    wins: int = Field(nullable=False)
+    losses: int = Field(nullable=False)
     league_points: int = Field(nullable=False)
 
     summoner: Summoner | None = Relationship(back_populates="leagues")
@@ -133,6 +133,80 @@ class Match(SQLModel, table=True):
     )
 
     game_duration: int = Field(nullable=False)
+
+
+class MatchParticipant(SQLModel, table=True):
+    __tablename__ = "match_participants"
+
+    id: int | None = Field(default=None, primary_key=True)
+    match_id: str = Field(nullable=False, foreign_key="matches.match_id")
+    team_id: int = Field(nullable=False)
+
+    summoner_puuid: str = Field(
+        nullable=False,
+        index=True,
+        foreign_key="summoners.puuid"
+    )
+
+    champion_id: int = Field(nullable=False)
+    champion_name: str = Field(nullable=False)
+    lane: str = Field(nullable=False)
+
+    kills: int = Field(nullable=False)
+    deaths: int = Field(nullable=False)
+    assists: int = Field(nullable=False)
+    kill_participation: float = Field(nullable=False)
+
+    double_kills: int = Field(nullable=False)
+    triple_kills: int = Field(nullable=False)
+    quadra_kills: int = Field(nullable=False)
+    penta_kills: int = Field(nullable=False)
+    largest_multi_kill: int = Field(nullable=False)
+
+    damage_dealt_to_champions: int = Field(nullable=False)
+    damage_taken: int = Field(nullable=False)
+
+    total_minions_killed: int = Field(nullable=False)
+    neutral_minions_killed: int = Field(nullable=False)
+    gold_earned: int = Field(nullable=False)
+
+    vision_score: int = Field(nullable=False)
+    wards_placed: int = Field(nullable=False)
+    wards_killed: int = Field(nullable=False)
+    vision_wards_bought: int = Field(nullable=False)
+
+    item0: int | None = Field(nullable=True)
+    item1: int | None = Field(nullable=True)
+    item2: int | None = Field(nullable=True)
+    item3: int | None = Field(nullable=True)
+    item4: int | None = Field(nullable=True)
+    item5: int | None = Field(nullable=True)
+    item6: int | None = Field(nullable=True)
+
+    runes: list["MatchParticipantRunes"] = Relationship(back_populates="participant")
+
+
+class MatchParticipantRunes(SQLModel, table=True):
+    __tablename__ = "match_participant_runes"
+
+    id: int | None = Field(default=None, primary_key=True)
+    participant_id: int = Field(nullable=False, foreign_key="match_participants.id", index=True)
+
+    primary_style: int = Field(nullable=False, index=True)
+    primary_perk0: int = Field(nullable=False)
+    primary_perk1: int = Field(nullable=False)
+    primary_perk2: int = Field(nullable=False)
+    primary_perk3: int = Field(nullable=False)
+
+    secondary_style: int = Field(nullable=False, index=True)
+    secondary_perk0: int = Field(nullable=False)
+    secondary_perk1: int = Field(nullable=False)
+
+    stat_perk_defense: int = Field(nullable=False)
+    stat_perk_flex: int = Field(nullable=False)
+    stat_perk_offense: int = Field(nullable=False)
+
+    participant: MatchParticipant | None = Relationship(back_populates="runes")
 
 
 class SummonerLeaguesRead(BaseModel):

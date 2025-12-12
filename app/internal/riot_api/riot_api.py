@@ -64,6 +64,8 @@ class RiotAPI:
             return {
                 "puuid": puuid,
                 "region": summoner_region,
+                "summonerName": summoner_info.get("summonerName"),
+                "tagLine": summoner_info.get("tagLine"),
                 "summonerLevel": summoner_info.get("summonerLevel"),
                 "profileIcon": summoner_info.get("profileIcon"),
                 "revisionDate": datetime.fromtimestamp(
@@ -196,3 +198,118 @@ class RiotAPI:
                                           self._get_platform_or_region())
 
         return api_base
+
+
+    def get_match_history(
+        self: Self,
+        puuid: str,
+        start: int = 0,
+        count: int = 20
+    ):
+        region = self._get_region_by_puuid("lol", puuid)
+        if not region:
+            logger.error(f"Could not determine region for PUUID: {puuid}")
+            return None
+
+        self._set_platform_or_region("europe")
+
+        url = f"{self._get_api_base()}/lol/match/v5/matches/by-puuid/{puuid}/ids"
+        params = {
+            "start": start,
+            "count": min(count, 100)
+        }
+
+        response = requests.get(
+            url,
+            headers={
+                "X-Riot-Token": self._api_key
+            },
+            params=params
+        )
+
+        if response.ok:
+            try:
+                return response.json()
+            except requests.exceptions.JSONDecodeError:
+                logger.error("Failed to decode match history response")
+                raise HTTPException(status_code=500, detail="Internal Error")
+
+        match response.status_code:
+            case 400:
+                logger.error("Bad request for match history")
+                raise HTTPException(status_code=400, detail="Invalid request parameters")
+            case 401:
+                logger.error("Unauthorized match history request")
+                raise HTTPException(status_code=500, detail="Internal Server Error")
+            case 403:
+                logger.error("Forbidden match history request")
+                raise HTTPException(status_code=500, detail="Internal Server Error")
+            case 429:
+                logger.warning("Rate limit exceeded for match history")
+                raise HTTPException(status_code=429, detail="Rate limit exceeded")
+            case _:
+                logger.error(f"Unexpected error fetching match history: {response.status_code}")
+                raise HTTPException(status_code=500, detail="Internal Server Error")
+
+
+    def get_match_by_id(
+        self: Self,
+        match_id: str,
+        puuid: Optional[str] = None
+    ):
+        if "_" in match_id:
+            platform = match_id.split("_")[0].lower()
+            # Map platform to regional routing
+            platform_to_region = {
+                "euw1": "europe", "eun1": "europe", "tr1": "europe", "ru": "europe",
+                "na1": "americas", "br1": "americas", "la1": "americas", "la2": "americas",
+                "kr": "asia", "jp1": "asia", "oc1": "asia", "ph2": "asia", "sg2": "asia", "th2": "asia", "tw2": "asia",
+                "vn2": "asia"
+            }
+            regional_routing = platform_to_region.get(platform, "europe")
+        elif puuid:
+            # Fallback: determine region from PUUID
+            region = self._get_region_by_puuid("lol", puuid)
+            if region:
+                region_mapping = {
+                    "europe": "europe",
+                    "americas": "americas",
+                    "asia": "asia"
+                }
+                regional_routing = region_mapping.get(region.lower(), "europe")
+            else:
+                regional_routing = "europe"
+        else:
+            # Default to europe if we can't determine
+            regional_routing = "europe"
+
+        self._set_platform_or_region(regional_routing)
+
+        response = requests.get(
+            f"{self._get_api_base()}/lol/match/v5/matches/{match_id}",
+            headers={"X-Riot-Token": self._api_key}
+        )
+
+        if response.ok:
+            try:
+                return response.json()
+            except requests.exceptions.JSONDecodeError:
+                logger.error("Failed to decode match data response")
+                raise HTTPException(status_code=500, detail="Internal Error")
+
+        match response.status_code:
+            case 404:
+                logger.warning(f"Match not found: {match_id}")
+                return None
+            case 401:
+                logger.error("Unauthorized match request")
+                raise HTTPException(status_code=500, detail="Internal Server Error")
+            case 403:
+                logger.error("Forbidden match request")
+                raise HTTPException(status_code=500, detail="Internal Server Error")
+            case 429:
+                logger.warning("Rate limit exceeded for match data")
+                raise HTTPException(status_code=429, detail="Rate limit exceeded")
+            case _:
+                logger.error(f"Unexpected error fetching match: {response.status_code}")
+                raise HTTPException(status_code=500, detail="Internal Server Error")
