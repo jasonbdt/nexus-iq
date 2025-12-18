@@ -101,12 +101,12 @@ class SummonerLeagues(SQLModel, table=True):
     @computed_field
     @property
     def total_games(self: Self) -> int:
-        return self.game_wins + self.game_losses
+        return self.wins + self.losses
 
     @computed_field
     @property
     def win_rate(self: Self) -> float:
-        return self.game_wins / self.total_games * 100
+        return self.wins / self.total_games * 100
 
 
 class Match(SQLModel, table=True):
@@ -214,8 +214,8 @@ class SummonerLeaguesRead(BaseModel):
     queue_type: str
     tier: str
     rank: str
-    game_wins: int
-    game_losses: int
+    wins: int
+    losses: int
     league_points: int
     total_games: int
     win_rate: float

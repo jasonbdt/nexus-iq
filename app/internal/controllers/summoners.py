@@ -28,7 +28,16 @@ async def create_new(game_name: str, tag_line: str, session: SessionDep):
     summoner_in_db = get_summoner_by_puuid(summoner.account_info.puuid, session)
 
     if not summoner_in_db:
-        leagues = [SummonerLeagues(**league) for league in summoner.leagues]
+        leagues = [SummonerLeagues(
+            league_id=league.league_id,
+            queue_type=league.queue_type,
+            tier=league.tier,
+            rank=league.rank,
+            wins=league.wins,
+            losses=league.losses,
+            league_points=league.league_points
+        ) for league in summoner.leagues]
+
         new_summoner = Summoner(
             puuid=summoner.account_info.puuid,
             region=summoner.region,
@@ -48,3 +57,11 @@ async def create_new(game_name: str, tag_line: str, session: SessionDep):
 
     return None
 
+
+async def find_or_create(game_name: str, tag_line: str, session: SessionDep):
+    summoner = get_summoner_by_name(game_name, tag_line, session)
+
+    if not summoner:
+        summoner = await create_new(game_name, tag_line, session)
+
+    return summoner

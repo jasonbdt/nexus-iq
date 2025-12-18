@@ -199,54 +199,17 @@ async def get_summoner(
 
     return account_data, region
 
-@router.get("/v2/get_summoner/{tag_line}/{game_name}")
+@router.get("/v2/get_summoner/{tag_line}/{game_name}", response_model=SummonerSearch)
 async def get_summoner(
     current_user: Annotated[User, Depends(get_current_active_user)],
     tag_line: str,
     game_name: str,
     session: SessionDep
 ):
-    from app.internal.riot_api.summoners import RiotSummoners
+    logger.info(
+        f"User[{current_user.id}] searching for Summoner \"{game_name}#{tag_line}\"")
 
-    # Step 1: Check if summoner exists in database
-    summoner = SummonersController.get_summoner_by_name(game_name, tag_line, session)
-
-    # TODO: Move to controller
-    # Step 2: Get summoner from RiotAPI and save it to database
-    if not summoner:
-        return await SummonersController.create_new(game_name, tag_line, session)
-        summoner = await RiotSummoners().get_summoner(
-            game_name=game_name,
-            tag_line=tag_line
-        )
-
-        # Check if Summoner exists in database by puuid (Update or Create)
-        summoner_in_db = SummonersController.get_summoner_by_puuid(
-            puuid=summoner.account_info.puuid,
-            session=session
-        )
-
-        if not summoner_in_db:
-            leagues = [SummonerLeagues(**league) for league in summoner.leagues]
-            new_summoner = Summoner(
-                puuid=summoner.account_info.puuid,
-                region=summoner.region,
-                summoner_name=summoner.account_info.game_name,
-                tag_line=summoner.account_info.tag_line,
-                summoner_level=summoner.level,
-                profile_icon=summoner.profile_icon_id,
-                revision_date=summoner.revision_date,
-                leagues=leagues
-            )
-
-            session.add(new_summoner)
-
-
-        return summoner
-
-    account_data = await RiotSummoners().get_account(game_name, tag_line)
-
-    return account_data
+    return await SummonersController.find_or_create(game_name, tag_line, session)
 
 
 @router.post("/refresh/{tag_line}/{player_name}")
