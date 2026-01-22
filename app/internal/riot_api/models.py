@@ -83,6 +83,123 @@ class LeagueEntry(BaseModel):
 
 
 # =============================================================================
+# Match API Models
+# =============================================================================
+
+class MatchMetadata(BaseModel):
+    """Metadata for a match."""
+    data_version: str = Field(alias="dataVersion")
+    match_id: str = Field(alias="matchId")
+    participants: list[str]
+
+    model_config = {"populate_by_name": True}
+
+
+class MatchParticipant(BaseModel):
+    """Participant data within a match."""
+    puuid: str
+    summoner_name: str = Field(alias="summonerName")
+    riot_id_game_name: str = Field(alias="riotIdGameName")
+    riot_id_tagline: str = Field(alias="riotIdTagline")
+    champion_id: int = Field(alias="championId")
+    champion_name: str = Field(alias="championName")
+    team_id: int = Field(alias="teamId")
+    win: bool
+
+    # KDA stats
+    kills: int
+    deaths: int
+    assists: int
+
+    # CS stats
+    total_minions_killed: int = Field(alias="totalMinionsKilled")
+    neutral_minions_killed: int = Field(alias="neutralMinionsKilled")
+
+    # Gold and damage
+    gold_earned: int = Field(alias="goldEarned")
+    total_damage_dealt_to_champions: int = Field(alias="totalDamageDealtToChampions")
+
+    # Items (0-6)
+    item0: int = 0
+    item1: int = 0
+    item2: int = 0
+    item3: int = 0
+    item4: int = 0
+    item5: int = 0
+    item6: int = 0 # Trinket
+
+    # Vision
+    vision_score: int = Field(0, alias="visionScore")
+    wards_placed: int = Field(0, alias="wardsPlaced")
+
+    # Position
+    team_position: str = Field("", alias="teamPosition")
+    lane: str = ""
+
+    model_config = {"populate_by_name": True}
+
+    @computed_field
+    @property
+    def kda(self: Self) -> float:
+        """Calculate KDA ratio."""
+        if self.deaths == 0:
+            return float(self.kills + self.assists)
+
+        return round((self.kills + self.assists) / self.deaths, 2)
+
+    @computed_field
+    @property
+    def cs(self: Self) -> int:
+        """Total creep score."""
+        return self.total_minions_killed + self.neutral_minions_killed
+
+
+class MatchTeam(BaseModel):
+    """Team data within a match."""
+    team_id: int = Field(alias="teamId")
+    win: bool
+
+    model_config = {"populate_by_name": True}
+
+
+class MatchInfo(BaseModel):
+    """Match information (game data)."""
+    game_creation: int = Field(alias="gameCreation")
+    game_duration: int = Field(alias="gameDuration")
+    game_end_timestamp: Optional[int] = Field(None, alias="gameEndTimestamp")
+    game_id: int = Field(alias="gameId")
+    game_mode: str = Field(alias="gameMode")
+    game_name: str = Field(alias="gameName")
+    game_type: str = Field(alias="gameType")
+    game_version: str = Field(alias="gameVersion")
+    map_id: int = Field(alias="mapId")
+    queue_id: int = Field(alias="queueId")
+    platform_id: str = Field(alias="platformId")
+    participants: list[MatchParticipant]
+    teams: list[MatchTeam]
+
+    model_config = {"populate_by_name": True}
+
+    @computed_field
+    @property
+    def game_creation_datetime(self: Self) -> datetime:
+        """Convert game creation timestamp to UTC datetime."""
+        return datetime.fromtimestamp(self.game_creation / 1000, tz=timezone.utc)
+
+    @computed_field
+    @property
+    def duration_minutes(self: Self) -> float:
+        """Game duration in minutes."""
+        return round(self.game_duration / 60, 1)
+
+
+class Match(BaseModel):
+    """Complete match data from match/v5 endpoint."""
+    metadata: MatchMetadata
+    info: MatchInfo
+
+
+# =============================================================================
 # Composite/Facade Models
 # =============================================================================
 
