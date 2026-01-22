@@ -8,7 +8,6 @@ from sqlmodel import select, or_
 from .db import SessionDep
 from .logging import get_logger
 from .models import Summoner
-from .riot_api.riot_api import RiotAPI
 
 logger = get_logger(__name__)
 
@@ -82,27 +81,7 @@ def create_match_participant_with_runes(
     ).first()
 
     if not summoner:
-        riot_api = RiotAPI()
-        summoner_data = riot_api.get_summoner_by_puuid(
-            participant_data.get("puuid")
-        )
-        summoner_leagues = riot_api.get_summoner_leagues(
-            summoner_data.get("region"),
-            participant_data.get("puuid")
-        )
-
-        summoner = Summoner(
-            puuid=participant_data.get("puuid"),
-            region=summoner_data.get("region"),
-            summoner_name=summoner_data.get("summonerName"),
-            tag_line=summoner_data.get("tagLine"),
-            summoner_level=summoner_data.get("summonerLevel"),
-            profile_icon=summoner_data.get("profileIcon"),
-            revision_date=summoner_data.get("revisionDate"),
-            leagues=[SummonerLeagues(**league) for league in summoner_leagues]
-        )
-        session.add(summoner)
-        session.commit()
+        pass
 
     participant = MatchParticipant(
         match_id=match_id,
@@ -159,10 +138,4 @@ def find_or_create_summoner_by_puuid(participant_data: dict, session: SessionDep
     ).first()
 
     if not summoner:
-        riot_api = RiotAPI()
-        summoner_data = riot_api.get_summoner_by_puuid(puuid)
-
-        if not summoner_data:
-            logger.info(f"Summoner doesn't exist at Riot Servers")
-        else:
-            pass
+        pass

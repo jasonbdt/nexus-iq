@@ -85,7 +85,7 @@ class SummonerLeagues(SQLModel, table=True):
     __tablename__ = "summoner_leagues"
 
     id: int | None = Field(default=None, primary_key=True)
-    summoner_id: int = Field(nullable=False, foreign_key="summoners.id")
+    summoner_id: int | None = Field(nullable=False, foreign_key="summoners.id")
     league_id: str = Field(index=True, nullable=False)
 
     queue_type: str = Field(nullable=False)
