@@ -15,5 +15,13 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6336:6333"
+      - "6335:6334"
+    volumes:
+      - ./qdrant_storage:/qdrant/storage
+
 volumes:
   pgdata:
