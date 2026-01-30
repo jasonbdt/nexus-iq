@@ -95,6 +95,39 @@ class MatchMetadata(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class MatchParticipantPerkStats(BaseModel):
+    defense: int
+    flex: int
+    offense: int
+
+    model_config = {"populate_by_name": True}
+
+
+class MatchParticipantPerkStyleSelection(BaseModel):
+    perk: int
+    var1: int
+    var2: int
+    var3: int
+
+    model_config = {"populate_by_name": True}
+
+
+class MatchParticipantPerkStyle(BaseModel):
+    description: str
+    selections: list[MatchParticipantPerkStyleSelection]
+    style: int
+
+    model_config = {"populate_by_name": True}
+
+
+class MatchParticipantPerks(BaseModel):
+    """Participants perks within a match."""
+    stat_perks: MatchParticipantPerkStats = Field(alias="statPerks")
+    styles: list[MatchParticipantPerkStyle]
+
+    model_config = {"populate_by_name": True}
+
+
 class MatchParticipant(BaseModel):
     """Participant data within a match."""
     puuid: str
@@ -103,6 +136,8 @@ class MatchParticipant(BaseModel):
     riot_id_tagline: str = Field(alias="riotIdTagline")
     champion_id: int = Field(alias="championId")
     champion_name: str = Field(alias="championName")
+    champion_level: int = Field(alias="champLevel")
+    time_played: int = Field(alias="timePlayed")
     team_id: int = Field(alias="teamId")
     win: bool
 
@@ -111,12 +146,24 @@ class MatchParticipant(BaseModel):
     deaths: int
     assists: int
 
+    # Kill stats
+    double_kills: int = Field(alias="doubleKills")
+    triple_kills: int = Field(alias="tripleKills")
+    quadra_kills: int = Field(alias="quadraKills")
+    penta_kills: int = Field(alias="pentaKills")
+    largest_multi_kill: int = Field(alias="largestMultiKill")
+
+    # Damage stats
+    damage_dealt_to_champions: int = Field(alias="totalDamageDealtToChampions")
+    damage_taken: int = Field(alias="totalDamageTaken")
+
     # CS stats
     total_minions_killed: int = Field(alias="totalMinionsKilled")
     neutral_minions_killed: int = Field(alias="neutralMinionsKilled")
 
     # Gold and damage
     gold_earned: int = Field(alias="goldEarned")
+    gold_spent: int = Field(alias="goldSpent")
     total_damage_dealt_to_champions: int = Field(alias="totalDamageDealtToChampions")
 
     # Items (0-6)
@@ -128,13 +175,18 @@ class MatchParticipant(BaseModel):
     item5: int = 0
     item6: int = 0 # Trinket
 
+    # Runes
+    perks: MatchParticipantPerks
+
     # Vision
     vision_score: int = Field(0, alias="visionScore")
     wards_placed: int = Field(0, alias="wardsPlaced")
+    wards_killed: int = Field(0, alias="wardsKilled")
+    vision_wards_bought: int = Field(0, alias="visionWardsBoughtInGame")
 
     # Position
     team_position: str = Field("", alias="teamPosition")
-    lane: str = ""
+    lane: str
 
     model_config = {"populate_by_name": True}
 
@@ -154,9 +206,34 @@ class MatchParticipant(BaseModel):
         return self.total_minions_killed + self.neutral_minions_killed
 
 
+class MatchTeamBans(BaseModel):
+    """Team bans within a match."""
+    champion_id: int = Field(alias="championId")
+    pick_turn: int = Field(alias="pickTurn")
+
+
+class MatchObjective(BaseModel):
+    """DTO for Match objectives."""
+    first: bool
+    kills: int
+
+
+class MatchTeamObjectives(BaseModel):
+    """Team objectives within a match."""
+    baron: MatchObjective
+    champion: MatchObjective
+    dragon: MatchObjective
+    horde: MatchObjective
+    inhibitor: MatchObjective
+    rift_herald: MatchObjective = Field(alias="riftHerald")
+    tower: MatchObjective
+
+
 class MatchTeam(BaseModel):
     """Team data within a match."""
     team_id: int = Field(alias="teamId")
+    bans: list["MatchTeamBans"]
+    objectives: MatchTeamObjectives
     win: bool
 
     model_config = {"populate_by_name": True}
@@ -166,6 +243,7 @@ class MatchInfo(BaseModel):
     """Match information (game data)."""
     game_creation: int = Field(alias="gameCreation")
     game_duration: int = Field(alias="gameDuration")
+    game_start_timestamp: int = Field(alias="gameStartTimestamp")
     game_end_timestamp: Optional[int] = Field(None, alias="gameEndTimestamp")
     game_id: int = Field(alias="gameId")
     game_mode: str = Field(alias="gameMode")
@@ -185,6 +263,18 @@ class MatchInfo(BaseModel):
     def game_creation_datetime(self: Self) -> datetime:
         """Convert game creation timestamp to UTC datetime."""
         return datetime.fromtimestamp(self.game_creation / 1000, tz=timezone.utc)
+
+    @computed_field
+    @property
+    def game_end_datetime(self: Self) -> Optional[datetime]:
+        """Convert game end timestamp to UTC datetime."""
+        if self.game_end_timestamp:
+            return datetime.fromtimestamp(
+                self.game_end_timestamp / 1000,
+                tz=timezone.utc
+            )
+
+        return None
 
     @computed_field
     @property

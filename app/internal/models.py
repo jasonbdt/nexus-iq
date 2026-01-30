@@ -1,7 +1,7 @@
-from typing import Optional, Self
+from typing import Optional, Self, Any
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, func
+from sqlalchemy import DateTime, func, JSON
 from sqlmodel import Column, Field, Relationship, SQLModel
 from pydantic import BaseModel, computed_field
 
@@ -74,6 +74,7 @@ class Summoner(SQLModel, table=True):
     )
 
     leagues: list["SummonerLeagues"] = Relationship(back_populates="summoner")
+    stats: list["MatchParticipant"] = Relationship(back_populates="profile")
 
     @computed_field
     @property
@@ -134,13 +135,56 @@ class Match(SQLModel, table=True):
 
     game_duration: int = Field(nullable=False)
 
+    participants: list["MatchParticipant"] = Relationship(back_populates="match")
+    teams: list["MatchTeam"] = Relationship(back_populates="match")
+
+
+class MatchTeam(SQLModel, table=True):
+    __tablename__ = "match_teams"
+
+    id: int | None = Field(default=None, primary_key=True)
+    match_id: int = Field(nullable=False, foreign_key="matches.id")
+    team_id: int = Field(nullable=False)
+
+    bans: list["MatchTeamBans"] = Relationship(back_populates="team")
+    objectives: list["MatchTeamObjectives"] = Relationship(back_populates="team")
+    win: bool = Field(nullable=False)
+
+    match: Match = Relationship(back_populates="teams")
+    participants: list["MatchParticipant"] = Relationship(back_populates="team")
+
+
+class MatchTeamBans(SQLModel, table=True):
+    __tablename__ = "match_team_bans"
+
+    id: int | None = Field(default=None, primary_key=True)
+    team_id: int = Field(nullable=False, foreign_key="match_teams.id")
+
+    champion_id: int = Field(nullable=False)
+    pick_turn: int = Field(nullable=False)
+
+    team: MatchTeam = Relationship(back_populates="bans")
+
+
+class MatchTeamObjectives(SQLModel, table=True):
+    __tablename__ = "match_team_objectives"
+
+    id: int | None = Field(default=None, primary_key=True)
+    team_id: int = Field(nullable=False, foreign_key="match_teams.id")
+
+    objective: str = Field(nullable=False)
+    first: bool = Field(default=False)
+    kills: int = Field(nullable=False)
+
+    team: MatchTeam = Relationship(back_populates="objectives")
+
 
 class MatchParticipant(SQLModel, table=True):
     __tablename__ = "match_participants"
 
     id: int | None = Field(default=None, primary_key=True)
-    match_id: str = Field(nullable=False, foreign_key="matches.match_id")
-    team_id: int = Field(nullable=False)
+    match_id: int = Field(nullable=False, foreign_key="matches.id")
+    team_id: int = Field(nullable=False, foreign_key="match_teams.id")
 
     summoner_puuid: str = Field(
         nullable=False,
@@ -155,7 +199,7 @@ class MatchParticipant(SQLModel, table=True):
     kills: int = Field(nullable=False)
     deaths: int = Field(nullable=False)
     assists: int = Field(nullable=False)
-    kill_participation: float = Field(nullable=False)
+    # kill_participation: float = Field(nullable=False)
 
     double_kills: int = Field(nullable=False)
     triple_kills: int = Field(nullable=False)
@@ -184,6 +228,22 @@ class MatchParticipant(SQLModel, table=True):
     item6: int | None = Field(nullable=True)
 
     runes: list["MatchParticipantRunes"] = Relationship(back_populates="participant")
+    match: Match = Relationship(back_populates="participants")
+    profile: Summoner = Relationship(back_populates="stats")
+    team: MatchTeam = Relationship(back_populates="participants")
+
+    @computed_field
+    @property
+    def kda(self: Self) -> float:
+        if self.deaths == 0:
+            return round(self.kills + self.assists, 2)
+
+        return round((self.kills + self.assists) / self.deaths, 2)
+
+    @computed_field
+    @property
+    def total_cs(self: Self) -> int:
+        return self.total_minions_killed + self.neutral_minions_killed
 
 
 class MatchParticipantRunes(SQLModel, table=True):
@@ -207,6 +267,91 @@ class MatchParticipantRunes(SQLModel, table=True):
     stat_perk_offense: int = Field(nullable=False)
 
     participant: MatchParticipant | None = Relationship(back_populates="runes")
+
+
+class SummonerMatchRead(BaseModel):
+    summoner_name: str = Field(alias="summoner_name")
+    tag_line: str
+    riot_id: str
+
+
+class MatchParticipantRunesRead(BaseModel):
+    primary_style: int
+    primary_perk0: int
+    primary_perk1: int
+    primary_perk2: int
+    primary_perk3: int
+
+    secondary_style: int
+    secondary_perk0: int
+    secondary_perk1: int
+
+    stat_perk_defense: int
+    stat_perk_flex: int
+    stat_perk_offense: int
+
+
+class MatchParticipantsRead(BaseModel):
+    champion_id: int
+    champion_name: str
+    kills: int
+    deaths: int
+    assists: int
+
+    kda: float
+    total_cs: int
+    gold_earned: int
+    vision_score: int
+    wards_placed: int
+    wards_killed: int
+    vision_wards_bought: int
+
+    item0: int
+    item1: int
+    item2: int
+    item3: int
+    item4: int
+    item5: int
+    item6: int
+
+    profile: SummonerMatchRead
+    runes: list[MatchParticipantRunesRead]
+
+
+class MatchTeamBansRead(BaseModel):
+    champion_id: int
+    pick_turn: int
+
+
+class MatchTeamObjectivesRead(BaseModel):
+    objective: str
+    first: bool
+    kills: int
+
+
+class MatchTeamsRead(BaseModel):
+    team_id: int
+    bans: list["MatchTeamBansRead"]
+    objectives: list["MatchTeamObjectivesRead"]
+    participants: list["MatchParticipantsRead"]
+    win: bool
+
+
+class MatchesRead(BaseModel):
+    match_id: str
+    platform: str
+    queue_id: int
+    game_mode: str
+    game_type: str
+    game_version: str
+    map_id: int
+
+    game_start: datetime
+    game_end: datetime
+    game_duration: int
+
+    teams: list["MatchTeamsRead"]
+    # participants: list["MatchParticipantsRead"]
 
 
 class SummonerLeaguesRead(BaseModel):

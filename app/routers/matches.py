@@ -1,12 +1,15 @@
 from datetime import datetime, timezone
+from typing import Any
 
 from fastapi.routing import APIRouter
+from starlette.responses import JSONResponse
 
-# from .summoners import get_summoner_from_db_by_puuid, handle_existing_summoner, create_or_update_summoner_from_riot
+from ..internal.controllers import matches as MatchesController
 from ..internal.db import SessionDep
 from ..internal.logging import get_logger
-from ..internal.models import Match
+from ..internal.models import Match, MatchesRead
 from ..internal.match_utils import create_match_participant_with_runes
+from ..internal.riot_api import RiotAPIDep
 
 router = APIRouter(
     prefix="/matches",
@@ -20,8 +23,24 @@ logger = get_logger(__name__)
 def index():
     return { "message": "It works" }
 
-@router.get("/by-puuid/{puuid}")
-def get_matches_by_puuid(puuid: str):
+# TODO: Increase default count value for recent matches
+@router.get("/{region}/by-puuid/{puuid}")
+async def get_recent_matches_by_puuid(
+    region: str,
+    puuid: str,
+    riot_api: RiotAPIDep,
+    session: SessionDep,
+    match_count: int = 1
+) -> list[MatchesRead]:
+    # TODO: Load matches from DB
+    # recent_matches = await riot_api.get_recent_matches(puuid, region, count)
+    recent_matches = MatchesController.get_recent_matches(puuid, region, match_count, session, riot_api)
+    print(recent_matches[0])
+
+    # return JSONResponse(content=recent_matches)
+
+    return recent_matches
+
     return { "message": "It works" }
 
 

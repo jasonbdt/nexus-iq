@@ -11,6 +11,7 @@ from typing import Self, Type, TypeVar, Union
 import os
 
 import aiohttp
+import requests.exceptions
 from aiohttp import ClientRequest, ClientHandlerType, ClientResponse, ClientTimeout, ClientSession
 from aiohttp.client_exceptions import ContentTypeError
 from fastapi import HTTPException
@@ -128,7 +129,7 @@ class RiotAPIBase(ABC):
         return await self._handle_response(response, response_model)
 
     async def _request_list(
-        self,
+        self: Self,
         routing: Union[RiotRegion, RiotPlatform],
         path: str,
         item_model: Type[T],
@@ -165,6 +166,50 @@ class RiotAPIBase(ABC):
         except (ContentTypeError, ValueError) as e:
             self._logger.error(f"Failed to parse response: {e}")
             raise RiotAPIError(f"Invalid response format: {e}")
+
+    async def _request_raw_list(
+        self: Self,
+        routing: Union[RiotRegion, RiotPlatform],
+        path: str
+    ) -> list[str]:
+        """
+        Make an HTTP GET request expecting a list of strings.
+
+        Used for endpoints that return simple lists (e.g., match IDs).
+
+        Args:
+            routing: Regional or platform routing value.
+            path: API endpoint path
+
+        Returns:
+            List of strings from the response.
+
+        Raises:
+            Same exceptions as _request.
+        """
+        url = self._build_url(routing, path)
+        self._logger.debug(f"Requesting raw list: {url}")
+
+        try:
+            response = await self._session.get(
+                url,
+                timeout=self._config.timeout_seconds
+            )
+        except aiohttp.client_exceptions.ConnectionTimeoutError:
+            raise RiotAPITimeoutError(
+                message=f"Request times out after {self._config.timeout_seconds}s"
+            )
+        except aiohttp.client_exceptions.ClientResponseError as e:
+            raise RiotAPIError(f"Request failed: {e}")
+
+        self._check_response_status(response)
+
+        try:
+            return await response.json()
+        except (ContentTypeError, ValueError) as e:
+            self._logger.error(f"Failed to parse response: {e}")
+            raise RiotAPIError(f"Failed to parse response: {e}")
+
 
     async def _handle_response(
         self: Self,

@@ -9,11 +9,11 @@ from typing import List, Optional, Self, Union
 
 from . import RiotAPINotFoundError
 from .config import RiotAPIConfig, REGION_TO_PLATFORM
-from .models import RiotError, SummonerProfile, SummonerLeagueInfo #, Match, MatchTimeline
+from .models import RiotError, SummonerProfile, SummonerLeagueInfo, Match  # , Match, MatchTimeline
 from .clients.account_client import AccountClient
 from .clients.summoner_client import SummonerClient
 from .clients.league_client import LeagueClient
-#from .clients.match_client import MatchClient
+from .clients.match_client import MatchClient
 from ..logging import get_logger
 
 
@@ -40,7 +40,7 @@ class RiotAPIFacade:
         account_client: Optional[AccountClient] = None,
         summoner_client: Optional[SummonerClient] = None,
         league_client: Optional[LeagueClient] = None,
-        #match_client: Optional[MatchClient] = None,
+        match_client: Optional[MatchClient] = None
     ):
         """
         Initialize the facade with configuration and optional client overrides.
@@ -56,7 +56,7 @@ class RiotAPIFacade:
         self._account_client = account_client or AccountClient(config)
         self._summoner_client = summoner_client or SummonerClient(config)
         self._league_client = league_client or LeagueClient(config)
-        #self._match_client = match_client or MatchClient(config)
+        self._match_client = match_client or MatchClient(config)
 
         logger.info("RiotAPIFacade initialized successfully")
 
@@ -188,3 +188,42 @@ class RiotAPIFacade:
                 league_points=entry.league_points,
             ) for entry in entries
         ]
+
+    # =========================================================================
+    # Match Methods
+    # =========================================================================
+
+    async def get_recent_matches(
+        self: Self,
+        puuid: str,
+        region: str,
+        count: int = 10
+    ) -> list[Match]:
+        """
+        Get recent match details for a player.
+
+        Fetches match IDs and then retrieves full match data for each.
+
+        Args:
+            puuid: Player's universal unique identifier
+            region: Region code (e.g., "na", "euw", "kr").
+            count: Number of matches to retrieve (max 100).
+
+        Returns:
+            List of full match data objects.
+        """
+        logger.debug(f"Getting {count} recent matches for PUUID: {puuid[:8]}...")
+
+        match_ids = await self._match_client.get_match_ids_by_puuid_with_region(puuid, region, count)
+
+        # Get full match data for each matchId
+        matches = []
+        for match_id in match_ids:
+            try:
+                match = await self._match_client.get_match_with_region(match_id, region)
+                matches.append(match)
+            except Exception as e:
+                logger.warning(f"Failed to fetch match {match_id}: {e}")
+                continue
+
+        return matches

@@ -60,13 +60,14 @@ async def update_summoner(
     current_user: Annotated[User, Depends(get_current_active_user)],
     puuid: str,
     session: SessionDep,
-    riot_api: RiotAPIDep
+    riot_api: RiotAPIDep,
+    match_count: int = 20
 ):
     logger.info(
         f"User[{current_user.id}] triggered an update for Summoner with PUUID \"{puuid}\"")
 
     summoner = await SummonersController.find_and_update(
-        puuid, session, riot_api
+        puuid, session, riot_api, match_count
     )
 
     if not summoner:
