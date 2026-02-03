@@ -18,10 +18,11 @@ services:
   qdrant:
     image: qdrant/qdrant:latest
     ports:
-      - "6336:6333"
-      - "6335:6334"
+      - "6333:6333"
+      - "6334:6334"
     volumes:
-      - ./qdrant_storage:/qdrant/storage
+      - qdrant_storage:/qdrant/storage
 
 volumes:
   pgdata:
+  qdrant_storage:
