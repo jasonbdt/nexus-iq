@@ -42,12 +42,9 @@ def chunk_text(text: str, max_chars: int = 450, overlap: int = 75) -> list[str]:
 
     start = 0
     chunks = []
-    words = text.split()
 
     while start < len(text):
-    #while start < len(words):
         end = min(start + max_chars, len(text))
-        #end = min(start + max_chars, len(words))
         chunk = text[start:end].strip()
         if chunk:
             chunks.append(chunk)
