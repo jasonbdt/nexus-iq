@@ -1,4 +1,3 @@
-import hashlib
 import os
 import re
 import uuid
@@ -6,8 +5,11 @@ import uuid
 from qdrant_client import AsyncQdrantClient
 from qdrant_client.models import (
     Distance,
-    VectorParams,
-    PointStruct
+    FieldCondition,
+    Filter,
+    MatchValue,
+    PointStruct,
+    VectorParams
 )
 
 NAMESPACE = uuid.UUID(os.getenv("APP_KEY"))
@@ -58,3 +60,35 @@ async def upsert_vectors(
         collection_name=os.getenv("QDRANT_COLLECTION_NAME"),
         points=points
     )
+
+
+async def search_similar(
+    query_embedding: list[float],
+    top_k: int = None
+) -> list[dict]:
+    """Search for similar vectors and return results with text and metadata."""
+    if top_k is None:
+        top_k = int(os.getenv("TOP_K"))
+
+    results = await client.query_points(
+        collection_name=os.getenv("QDRANT_COLLECTION_NAME"),
+        query=query_embedding,
+        limit=top_k,
+        using="text",
+        # with_payload=True,
+        query_filter=Filter(
+            must=[
+                FieldCondition(key="patch_version", match=MatchValue(value="26.2"))
+            ]
+        )
+    )
+
+    return [
+        {
+            "text": hit.payload.get("text", ""),
+            "score": hit.score,
+            "source": hit.payload.get("source", ""),
+            "patch_version": hit.payload.get("patch_version", "")
+        }
+        for hit in results.points
+    ]

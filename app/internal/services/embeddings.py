@@ -8,7 +8,7 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 async def embed_text(text: str) -> list[float]:
     """Embed a single text using text-embedding-3-small."""
-    response = await client.embeddings.create(
+    response = client.embeddings.create(
         model=os.getenv("EMBEDDING_MODEL"),
         input=text
     )

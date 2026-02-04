@@ -35,7 +35,7 @@ async def parse_patch_notes(patch_version: float):
     return all_chunks
 
 
-def chunk_text(text: str, max_chars: int = 450, overlap: int = 75) -> list[str]:
+def chunk_text(text: str, max_chars: int = 680, overlap: int = 100) -> list[str]:
     text = re.sub(r"\s+", " ", text).strip()
     if len(text) <= max_chars:
         return [text]

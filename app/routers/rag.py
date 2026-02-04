@@ -4,8 +4,9 @@ from starlette.responses import JSONResponse
 from ..internal.controllers import patches as PatchNotesController
 from ..internal.db import SessionDep
 from ..internal.logging import get_logger
-from ..internal.services.embeddings import embed_texts
-from ..internal.services.vector_store import upsert_vectors
+from ..internal.services.embeddings import embed_text, embed_texts
+from ..internal.services.llm import generate_response
+from ..internal.services.vector_store import upsert_vectors, search_similar
 
 router = APIRouter(
     tags=["RAG"]
@@ -36,4 +37,22 @@ async def index(patch_version: float):
     return JSONResponse(content={
         "message": f"Patch Notes for v{patch_version} ingested successfully",
         "count": len(chunks)
+    }, status_code=200)
+
+@router.post("/query")
+async def query_rag(question: str, top_k: int = 5):
+    """Query the RAG system about patch notes."""
+    query_embedding = await embed_text(question)
+    results = await search_similar(query_embedding, top_k=top_k)
+
+    context_parts = []
+    for result in results:
+        context_parts.append(f"[Source: {result['source']}, Score: {result['score']}, Patch Version: {result['patch_version']}]\n{result['text']}")
+
+    context = "\n\n---\n\n".join(context_parts)
+    print(context)
+    answer = generate_response(question, context)
+
+    return JSONResponse(content={
+        "message": answer
     }, status_code=200)
