@@ -5,7 +5,7 @@ from ..internal.controllers import patches as PatchNotesController
 from ..internal.db import SessionDep
 from ..internal.logging import get_logger
 from ..internal.services.embeddings import embed_text, embed_texts
-from ..internal.services.llm import generate_response
+from ..internal.services.llm import generate_response, determine_patch_versions
 from ..internal.services.vector_store import upsert_vectors, search_similar
 
 router = APIRouter(
@@ -42,8 +42,12 @@ async def index(patch_version: float):
 @router.post("/query")
 async def query_rag(question: str, top_k: int = 5):
     """Query the RAG system about patch notes."""
+    patch_versions = determine_patch_versions(question)
+    print("PATCH VERSION RESPONSE:")
+    print(patch_versions)
+    print("-----------------------")
     query_embedding = await embed_text(question)
-    results = await search_similar(query_embedding, top_k=top_k)
+    results = await search_similar(query_embedding, patch_versions, top_k=top_k)
 
     context_parts = []
     for result in results:

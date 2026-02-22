@@ -6,11 +6,16 @@ from qdrant_client import AsyncQdrantClient
 from qdrant_client.models import (
     Distance,
     FieldCondition,
+    Range,
     Filter,
-    MatchValue,
+    MatchText,
     PointStruct,
+    FloatIndexParams,
+    FloatIndexType,
     VectorParams
 )
+
+from app.internal.services.llm import DeterminedPatchVersions
 
 NAMESPACE = uuid.UUID(os.getenv("APP_KEY"))
 client = AsyncQdrantClient(
@@ -30,6 +35,15 @@ async def ensure_collection() -> None:
             vectors_config=VectorParams(
                 size=int(os.getenv("EMBEDDING_DIMENSION")),
                 distance=Distance.COSINE
+            )
+        )
+
+        await client.create_payload_index(
+            collection_name=os.getenv("QDRANT_COLLECTION_NAME"),
+            field_name="patch_version",
+            field_schema=FloatIndexParams(
+                type=FloatIndexType.FLOAT,
+                is_principal=True
             )
         )
 
@@ -64,7 +78,8 @@ async def upsert_vectors(
 
 async def search_similar(
     query_embedding: list[float],
-    top_k: int = None
+    patch_versions: DeterminedPatchVersions,
+    top_k: int = None,
 ) -> list[dict]:
     """Search for similar vectors and return results with text and metadata."""
     if top_k is None:
@@ -74,11 +89,12 @@ async def search_similar(
         collection_name=os.getenv("QDRANT_COLLECTION_NAME"),
         query=query_embedding,
         limit=top_k,
-        using="text",
-        # with_payload=True,
         query_filter=Filter(
             must=[
-                FieldCondition(key="patch_version", match=MatchValue(value="26.2"))
+                FieldCondition(key="patch_version", range=Range(
+                    lte=float(patch_versions.lte),
+                    gte=float(patch_versions.gte)
+                ))
             ]
         )
     )
