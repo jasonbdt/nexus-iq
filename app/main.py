@@ -9,8 +9,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from .internal.db import create_db_and_tables
 from .internal.logging import configure_logging
 from .dependencies import APP_ENV
+from .internal.services.vector_store import ensure_collection
 from .internal.session import init_session, close_session
-from .routers import auth, matches, summoners, users
+from .routers import auth, matches, rag, summoners, users
 
 
 @asynccontextmanager
@@ -22,6 +23,7 @@ async def lifespan(app: FastAPI):
     connector = aiohttp.TCPConnector(limit=100, ttl_dns_cache=300)
 
     await init_session(timeout=timeout, connector=connector, headers=headers)
+    await ensure_collection()
 
     configure_logging(log_level)
     create_db_and_tables()
@@ -39,6 +41,7 @@ app = FastAPI(
 
 app.include_router(auth.router)
 app.include_router(summoners.router)
+app.include_router(rag.router)
 app.include_router(matches.router)
 app.include_router(users.router)
 

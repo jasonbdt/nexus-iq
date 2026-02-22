@@ -1,0 +1,62 @@
+from fastapi.routing import APIRouter
+from starlette.responses import JSONResponse
+
+from ..internal.controllers import patches as PatchNotesController
+from ..internal.db import SessionDep
+from ..internal.logging import get_logger
+from ..internal.services.embeddings import embed_text, embed_texts
+from ..internal.services.llm import generate_response, determine_patch_versions
+from ..internal.services.vector_store import upsert_vectors, search_similar
+
+router = APIRouter(
+    tags=["RAG"]
+)
+
+logger = get_logger(__name__)
+
+
+@router.post("/ingest/{patch_version}")
+async def index(patch_version: float):
+    chunks = await PatchNotesController.parse_patch_notes(patch_version)
+
+    if not chunks:
+        return JSONResponse(content={
+            "message": f"No text extracted from patch notes for {patch_version}"
+        }, status_code=400)
+
+    texts = [chunk["text"] for chunk in chunks]
+    metadata = [{
+        "source": chunk["source"],
+        "patch_version": patch_version,
+        "chunk_index": chunk["chunk_index"]
+    } for chunk in chunks]
+
+    embeddings = embed_texts(texts)
+    await upsert_vectors(texts, embeddings, metadata)
+
+    return JSONResponse(content={
+        "message": f"Patch Notes for v{patch_version} ingested successfully",
+        "count": len(chunks)
+    }, status_code=200)
+
+@router.post("/query")
+async def query_rag(question: str, top_k: int = 5):
+    """Query the RAG system about patch notes."""
+    patch_versions = determine_patch_versions(question)
+    print("PATCH VERSION RESPONSE:")
+    print(patch_versions)
+    print("-----------------------")
+    query_embedding = await embed_text(question)
+    results = await search_similar(query_embedding, patch_versions, top_k=top_k)
+
+    context_parts = []
+    for result in results:
+        context_parts.append(f"[Source: {result['source']}, Score: {result['score']}, Patch Version: {result['patch_version']}]\n{result['text']}")
+
+    context = "\n\n---\n\n".join(context_parts)
+    print(context)
+    answer = generate_response(question, context)
+
+    return JSONResponse(content={
+        "message": answer
+    }, status_code=200)
