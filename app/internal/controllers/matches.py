@@ -3,7 +3,7 @@ from sqlmodel import select
 from ..db import SessionDep
 from ..logging import get_logger
 from ..models import Summoner, Match, MatchParticipant, MatchTeam
-from ..riot_api import RiotAPIDep, RiotAPINotFoundError, RiotPlatform, REGION_TO_PLATFORM
+from ..riot_api import RiotAPIDep, RiotPlatform, REGION_TO_PLATFORM
 
 logger = get_logger(__name__)
 

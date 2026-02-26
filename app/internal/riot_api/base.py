@@ -11,7 +11,6 @@ from typing import Self, Type, TypeVar, Union
 import os
 
 import aiohttp
-import requests.exceptions
 from aiohttp import ClientRequest, ClientHandlerType, ClientResponse, ClientTimeout, ClientSession
 from aiohttp.client_exceptions import ContentTypeError
 from fastapi import HTTPException

@@ -5,23 +5,12 @@ from fastapi.params import Depends
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRouter
 
-from sqlmodel import select, or_
-
-from .matches import process_match
-from ..dependencies import SUMMONER_TTL_MINUTES
 from ..internal.auth import get_current_active_user, get_current_user_optional
 from ..internal.controllers import summoners as SummonersController
-from ..internal.logging import get_logger
 from ..internal.db import SessionDep
+from ..internal.logging import get_logger
 from ..internal.models import Summoner, SummonerLeagues, SummonerSearch, User
-
-#from ..internal.riot_api.riot_api import RiotAPI
-from ..internal.riot_api import (
-    RiotAPIFacade,
-    RiotAPIDep,
-    RiotAPIError,
-    riot_exception_to_http,
-)
+from ..internal.riot_api import RiotAPIDep
 
 
 router = APIRouter(

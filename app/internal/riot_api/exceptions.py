@@ -7,8 +7,6 @@ HTTP/FastAPI concerns. Translation to HTTP responses happens at the router layer
 
 from typing import Optional, Self
 
-from fastapi.openapi.utils import status_code_ranges
-
 
 class RiotAPIError(Exception):
     """
