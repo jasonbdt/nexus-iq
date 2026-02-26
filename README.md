@@ -33,9 +33,9 @@ flowchart TB
 
 ## Prerequisites
 
-- **Docker & Docker Compose**
-- **Riot API key** (required) – obtain from [Riot Developer Portal](https://developer.riotgames.com/)
-- Optional: Node 24, Python 3.13 for local development without full Docker
+- **Docker & Docker Compose** (required)
+- **Riot API key** – obtain from [Riot Developer Portal](https://developer.riotgames.com/)
+- **OpenAI API key** – required for AI coaching features
 
 ## Getting Started
 
@@ -43,7 +43,10 @@ flowchart TB
 git clone https://github.com/jasonbdt/nexus-iq.git
 cd nexus-iq
 docker compose up -d --build
+docker compose watch frontend
 ```
+
+`docker compose watch frontend` starts the frontend watch process so changes to the Angular app are synced and rebuilt.
 
 - **Frontend:** http://localhost:4200
 - **Backend:** http://localhost:8000
@@ -52,12 +55,11 @@ docker compose up -d --build
 
 The override file adds pgAdmin and volume mounts for hot-reloading the backend.
 
-## Development Workflows
+## Unit Tests and Linting
 
-- **All-in-Docker:** `docker compose up` – frontend proxies to backend at `backend:8000`
-- **Backend only (Docker):** Run backend + database + Qdrant via Docker; run frontend locally with `ng serve`. Update `frontend/proxy.conf.json` target to `http://localhost:8000`
 - **Backend tests:** `pytest` (from repo root; `tests/conftest.py` sets env defaults)
 - **Frontend tests:** `cd frontend && ng test` (Vitest)
+- **Backend lint:** `pylint app/` (from repo root)
 
 ## Project Structure
 
@@ -112,7 +114,3 @@ To serve the project in production on a host machine:
    - **Backend:** FastAPI runs via `fastapi run`; internal port 8000 (not exposed in prod; frontend proxies to it).
 
 4. **Reverse proxy (recommended):** Put Nginx, Caddy, or Traefik in front to add HTTPS, domain routing, and rate limiting. Point your domain at the host and proxy to `http://localhost:8080`.
-
-## Contributing
-
-Contributions, ideas and feedback on the coaching approach are welcome. Please run tests before submitting (`pytest` for backend, `ng test` for frontend).
