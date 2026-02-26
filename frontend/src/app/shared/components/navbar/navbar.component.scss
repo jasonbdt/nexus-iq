@@ -1,0 +1,137 @@
+.navbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(5, 11, 24, 0.9);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.navbar-inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+}
+
+.navbar-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-decoration: none;
+  flex-shrink: 0;
+
+  .logo-icon {
+    font-size: 1.5rem;
+  }
+
+  .logo-text {
+    font-size: 1.25rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #f0b429, #00d4ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: -0.02em;
+  }
+}
+
+.navbar-links {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.nav-link {
+  padding: 0.5rem 0.875rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.6);
+  text-decoration: none;
+  transition: color 0.2s, background 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+
+  &:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  &.active {
+    color: #f0b429;
+    background: rgba(240, 180, 41, 0.1);
+  }
+
+  &.nav-link-coach.active {
+    color: #a78bfa;
+    background: rgba(124, 58, 237, 0.12);
+  }
+}
+
+.nav-link-icon {
+  font-size: 1rem !important;
+  width: 1rem !important;
+  height: 1rem !important;
+}
+
+.navbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.avatar-btn {
+  padding: 0 !important;
+  width: 40px !important;
+  height: 40px !important;
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f0b429, #d4930a);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.875rem;
+  color: #050b18;
+}
+
+.login-btn {
+  color: rgba(255, 255, 255, 0.7) !important;
+  font-size: 0.875rem !important;
+}
+
+.register-btn {
+  background: linear-gradient(135deg, #f0b429, #d4930a) !important;
+  color: #050b18 !important;
+  font-weight: 600 !important;
+  font-size: 0.875rem !important;
+  border-radius: 8px !important;
+}
+
+.menu-header {
+  padding: 0.75rem 1rem 0.5rem;
+
+  .menu-name {
+    margin: 0;
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: #fff;
+  }
+
+  .menu-email {
+    margin: 0.125rem 0 0;
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.5);
+  }
+}

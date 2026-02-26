@@ -1,0 +1,176 @@
+<app-navbar (openLogin)="openLogin()" (openRegister)="openRegister()" />
+
+<div class="coach-page">
+
+  <!-- ── Sidebar ──────────────────────────────────────────────────────────── -->
+  <aside class="coach-sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-title-row">
+        <div class="sidebar-icon-wrap">
+          <mat-icon>psychology</mat-icon>
+        </div>
+        <h2 class="sidebar-title">AI Coach</h2>
+      </div>
+      <button
+        mat-flat-button
+        class="new-session-btn"
+        (click)="newSession()"
+        [disabled]="loadingSessions()"
+        matTooltip="Start a new coaching session"
+      >
+        <mat-icon>add</mat-icon>
+        New Session
+      </button>
+    </div>
+
+    <div class="session-list">
+      @if (loadingSessions()) {
+        <div class="sessions-loading">
+          <mat-spinner diameter="24" />
+        </div>
+      } @else if (sessions().length === 0) {
+        <p class="no-sessions">No sessions yet. Start one above!</p>
+      } @else {
+        @for (session of sessions(); track session.id) {
+          <button
+            class="session-item"
+            [class.active]="activeSessionId() === session.id"
+            (click)="selectSession(session.id)"
+          >
+            <mat-icon class="session-item-icon">chat_bubble_outline</mat-icon>
+            <div class="session-item-body">
+              <p class="session-item-title">{{ session.title }}</p>
+              <p class="session-item-meta">
+                {{ session.updatedAt | date: 'MMM d, HH:mm' }}
+              </p>
+            </div>
+            <button
+              mat-icon-button
+              class="session-delete-btn"
+              (click)="deleteSession(session.id, $event)"
+              matTooltip="Delete session"
+            >
+              <mat-icon>delete_outline</mat-icon>
+            </button>
+          </button>
+        }
+      }
+    </div>
+
+    <div class="sidebar-footer">
+      <mat-icon class="footer-icon">info_outline</mat-icon>
+      <p class="footer-text">Your sessions are saved and private to your account.</p>
+    </div>
+  </aside>
+
+  <!-- ── Chat Pane ─────────────────────────────────────────────────────────── -->
+  <main class="coach-chat">
+    @if (activeSession) {
+
+      <!-- Chat Header -->
+      <div class="chat-header">
+        <div class="chat-header-left">
+          <p class="chat-session-title">{{ activeSession.title }}</p>
+          <p class="chat-session-meta">
+            Started {{ activeSession.createdAt | date: 'MMM d, y · HH:mm' }}
+          </p>
+        </div>
+        <span class="chat-status-badge" [class.active]="!loading()" [class.thinking]="loading()">
+          <span class="status-dot"></span>
+          {{ loading() ? 'Thinking…' : 'Ready' }}
+        </span>
+      </div>
+
+      <!-- Messages -->
+      <div class="chat-messages" #chatMessages>
+
+        @if (loadingMessages()) {
+          <div class="messages-loading">
+            <mat-spinner diameter="32" />
+            <p>Loading conversation…</p>
+          </div>
+        } @else if (activeSession.messages.length === 0) {
+          <!-- Empty state with suggested questions -->
+          <div class="chat-empty">
+            <div class="empty-icon-wrap">
+              <mat-icon>smart_toy</mat-icon>
+            </div>
+            <h3 class="empty-title">Start a Coaching Session</h3>
+            <p class="empty-subtitle">
+              Ask me anything about League of Legends patch notes, champion changes, item updates, or the current meta.
+            </p>
+            <div class="suggested-grid">
+              @for (q of suggestedQuestions; track q) {
+                <button class="suggested-card" (click)="askSuggested(q)" [disabled]="loading()">
+                  <mat-icon class="suggested-icon">lightbulb_outline</mat-icon>
+                  <span>{{ q }}</span>
+                </button>
+              }
+            </div>
+          </div>
+        } @else {
+          <!-- Message thread -->
+          @for (msg of activeSession.messages; track msg.timestamp) {
+            <div class="msg-row" [class.msg-user]="msg.role === 'user'" [class.msg-assistant]="msg.role === 'assistant'">
+
+              @if (msg.role === 'assistant') {
+                <div class="msg-avatar assistant-avatar">
+                  <mat-icon>smart_toy</mat-icon>
+                </div>
+              }
+
+              <div class="msg-bubble" [class.streaming]="msg.streaming">
+                @if (msg.streaming && msg.content === '') {
+                  <span class="typing-dot"></span>
+                  <span class="typing-dot"></span>
+                  <span class="typing-dot"></span>
+                } @else {
+                  <p class="msg-text">{{ msg.content }}</p>
+                  @if (!msg.streaming) {
+                    <span class="msg-time">{{ msg.timestamp | date: 'HH:mm' }}</span>
+                  }
+                }
+              </div>
+
+              @if (msg.role === 'user') {
+                <div class="msg-avatar user-avatar">
+                  {{ authService.currentUser()?.avatarName?.charAt(0)?.toUpperCase() || 'U' }}
+                </div>
+              }
+
+            </div>
+          }
+        }
+
+      </div>
+
+      <!-- Input -->
+      <div class="chat-input-area">
+        <textarea
+          class="chat-textarea"
+          placeholder="Ask about patch notes, champion changes, meta shifts… (Enter to send)"
+          rows="1"
+          [ngModel]="inputText()"
+          (ngModelChange)="inputText.set($event)"
+          (keydown)="onKeyDown($event)"
+          [disabled]="loading() || loadingMessages()"
+        ></textarea>
+        <button
+          mat-flat-button
+          class="chat-send-btn"
+          (click)="sendMessage()"
+          [disabled]="!inputText().trim() || loading() || loadingMessages()"
+          matTooltip="Send (Enter)"
+        >
+          @if (loading()) {
+            <mat-spinner diameter="18" />
+          } @else {
+            <mat-icon>send</mat-icon>
+          }
+        </button>
+      </div>
+
+    }
+  </main>
+
+</div>

@@ -1,0 +1,60 @@
+<div class="modal-container">
+  <div class="modal-header">
+    <div class="modal-logo">⚡ NexusIQ</div>
+    <h2 class="modal-title">Welcome back</h2>
+    <p class="modal-subtitle">Sign in to your account</p>
+    <button mat-icon-button class="close-btn" (click)="close()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <form [formGroup]="form" (ngSubmit)="submit()" class="modal-form">
+    @if (error()) {
+      <div class="error-banner">
+        <mat-icon>error_outline</mat-icon>
+        {{ error() }}
+      </div>
+    }
+
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Email</mat-label>
+      <input matInput type="email" formControlName="email" placeholder="you@example.com" autocomplete="email" />
+      <mat-icon matSuffix>email</mat-icon>
+      @if (form.controls.email.hasError('required') && form.controls.email.touched) {
+        <mat-error>Email is required</mat-error>
+      }
+      @if (form.controls.email.hasError('email') && form.controls.email.touched) {
+        <mat-error>Enter a valid email</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Password</mat-label>
+      <input
+        matInput
+        [type]="hidePassword() ? 'password' : 'text'"
+        formControlName="password"
+        autocomplete="current-password"
+      />
+      <button mat-icon-button matSuffix type="button" (click)="hidePassword.set(!hidePassword())">
+        <mat-icon>{{ hidePassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+      </button>
+      @if (form.controls.password.hasError('required') && form.controls.password.touched) {
+        <mat-error>Password is required</mat-error>
+      }
+    </mat-form-field>
+
+    <button
+      mat-flat-button
+      type="submit"
+      class="submit-btn"
+      [disabled]="form.invalid || loading()"
+    >
+      @if (loading()) {
+        <mat-spinner diameter="20" />
+      } @else {
+        Sign In
+      }
+    </button>
+  </form>
+</div>

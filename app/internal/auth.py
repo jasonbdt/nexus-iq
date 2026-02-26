@@ -17,9 +17,11 @@ from pwdlib.exceptions import UnknownHashError
 
 from ..dependencies import JWT_SECRET, JWT_ALGORITHM
 from .db import SessionDep
-from .models import User
+from .models import User, UserRole
+from .controllers import users as UsersController
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="login", auto_error=False)
 password_hash = PasswordHash.recommended()
 
 
@@ -30,6 +32,7 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     emailAddress: str | None
+    role: UserRole | None = None
 
 
 def verify_password(plain_password: str, hashed_password: str):
@@ -82,7 +85,10 @@ async def get_current_user(
         if emailAddress is None:
             raise credentials_exception
 
-        token_data = TokenData(emailAddress=emailAddress)
+        token_data = TokenData(
+            emailAddress=emailAddress,
+            role=payload.get("role"),
+        )
     except InvalidTokenError:
         raise credentials_exception
 
@@ -103,3 +109,47 @@ async def get_current_active_user(
         raise HTTPException(status_code=400, detail="Inactive User")
 
     return current_user
+
+
+async def get_current_user_optional(
+    token: Annotated[str | None, Depends(oauth2_scheme_optional)],
+    session: SessionDep,
+):
+    """Returns the current user if authenticated, else None. Does not raise on missing/invalid token."""
+    if not token:
+        return None
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        email_address = payload.get("sub")
+        if not email_address:
+            return None
+        user = session.exec(
+            select(User).where(User.emailAddress == email_address)
+        ).first()
+        return user if user and user.is_active else None
+    except InvalidTokenError:
+        return None
+
+
+def require_role(*roles: UserRole):
+    """Dependency factory that restricts access to users with one of the given roles.
+
+    Usage::
+
+        @router.get("/admin-only")
+        def admin_endpoint(user: Annotated[User, Depends(require_role(UserRole.administrator))]):
+            ...
+    """
+    async def _check(
+        current_user: Annotated[User, Depends(get_current_active_user)],
+        session: SessionDep,
+    ):
+        user_role = UsersController.get_user_role(current_user, session)
+        if user_role not in roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Insufficient permissions",
+            )
+        return current_user
+
+    return _check

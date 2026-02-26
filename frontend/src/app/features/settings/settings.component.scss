@@ -1,0 +1,171 @@
+.settings-page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 4rem;
+}
+
+.page-header {
+  margin-bottom: 2rem;
+}
+
+.page-title {
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 0.25rem;
+}
+
+.page-subtitle {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.9375rem;
+}
+
+.settings-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.settings-card {
+  background: #162032;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 1.5rem;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.card-icon {
+  color: #f0b429;
+  font-size: 1.5rem;
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.card-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #fff;
+  margin: 0;
+}
+
+.card-desc {
+  margin: 0 0 1rem;
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.6);
+
+  &.muted {
+    color: rgba(255, 255, 255, 0.35);
+    font-size: 0.8rem;
+  }
+}
+
+.linked-summoner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: 10px;
+  margin-bottom: 1rem;
+
+  &.additional-summoner button[mat-icon-button] {
+    margin-left: auto;
+  }
+}
+
+.profile-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.linked-info {
+  flex: 1;
+}
+
+.linked-name {
+  margin: 0;
+  font-weight: 600;
+  color: #fff;
+}
+
+.linked-meta {
+  margin: 0.1rem 0 0;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.cooldown-notice {
+  padding: 0.5rem 0.75rem;
+  background: rgba(245, 158, 11, 0.1);
+  border-radius: 8px;
+  color: #fbbf24;
+  font-size: 0.875rem;
+  margin: 0 0 1rem;
+}
+
+.search-form {
+  display: flex;
+  align-items: stretch;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+
+  app-player-search-input {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+.search-btn {
+  min-width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+}
+
+.found-result {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 10px;
+  margin: 0.5rem 0;
+
+  span { flex: 1; }
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+
+  button {
+    margin-top: 0.5rem;
+    align-self: flex-start;
+  }
+}
+
+.full-width {
+  width: 100%;
+}
+
+.success-text {
+  color: #10b981;
+  font-size: 0.875rem;
+  margin: 0.5rem 0 0;
+}
+
+.error-text {
+  color: #f87171;
+  font-size: 0.875rem;
+  margin: 0.5rem 0 0;
+}

@@ -1,0 +1,109 @@
+<app-navbar (openLogin)="openLogin()" (openRegister)="openRegister()" />
+
+<!-- Hero Section -->
+<section class="hero">
+  <div class="hero-bg">
+    <img
+      src="https://images.unsplash.com/photo-1542751371-adc38448a05e?w=1920&q=80"
+      alt="Gaming background"
+      class="hero-img"
+    />
+    <div class="hero-overlay"></div>
+  </div>
+
+  <div class="hero-content">
+    <div class="hero-badge">
+      <span class="badge-dot"></span>
+      AI-Powered League of Legends Analytics
+    </div>
+
+    <h1 class="hero-title">
+      Elevate Your Game with
+      <span class="hero-title-accent">NexusIQ</span>
+    </h1>
+
+    <p class="hero-subtitle">
+      Track your stats, analyze your performance, and get personalized AI coaching to climb the ranked ladder faster.
+    </p>
+
+    <!-- Search Form -->
+    <div class="search-card">
+      <p class="search-label">Search a player</p>
+      <div class="search-row">
+        <div class="search-input-group">
+          <input
+            class="search-input name-input"
+            type="text"
+            placeholder="Player Name"
+            [value]="gameName()"
+            (input)="onUnifiedInput($event)"
+          />
+          <span class="search-separator">#</span>
+          <input
+            #tagInputRef
+            class="search-input tag-input"
+            type="text"
+            placeholder="EUW"
+            [value]="tagLine()"
+            (input)="tagLine.set($any($event.target).value)"
+          />
+        </div>
+        <button class="search-btn" (click)="search()">
+          <mat-icon>search</mat-icon>
+          Search
+        </button>
+      </div>
+      @if (searchError()) {
+        <p class="search-error">
+          <mat-icon>error_outline</mat-icon>
+          {{ searchError() }}
+        </p>
+      }
+    </div>
+
+    <!-- CTA Buttons -->
+    <div class="hero-ctas">
+      <button mat-flat-button class="cta-primary" (click)="openRegister()">
+        Get Started Free
+        <mat-icon>arrow_forward</mat-icon>
+      </button>
+      <button mat-stroked-button class="cta-secondary" (click)="openLogin()">
+        Sign In
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- Features Section -->
+<section class="features">
+  <div class="features-inner">
+    <div class="section-header">
+      <h2 class="section-title">Everything you need to improve</h2>
+      <p class="section-subtitle">
+        NexusIQ combines real-time data from the Riot API with AI-powered insights to give you a competitive edge.
+      </p>
+    </div>
+
+    <div class="features-grid">
+      @for (feature of features; track feature.title) {
+        <div class="feature-card">
+          <div class="feature-icon-wrap">
+            <mat-icon class="feature-icon">{{ feature.icon }}</mat-icon>
+          </div>
+          <h3 class="feature-title">{{ feature.title }}</h3>
+          <p class="feature-desc">{{ feature.description }}</p>
+        </div>
+      }
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-logo">⚡ NexusIQ</div>
+    <p class="footer-text">
+      NexusIQ is not affiliated with Riot Games. League of Legends is a trademark of Riot Games, Inc.
+    </p>
+  </div>
+</footer>

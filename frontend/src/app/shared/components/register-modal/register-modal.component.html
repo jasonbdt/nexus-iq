@@ -1,0 +1,166 @@
+<div class="modal-container">
+  <!-- Header -->
+  <div class="modal-header">
+    <div class="modal-logo">⚡ NexusIQ</div>
+    <h2 class="modal-title">Create your account</h2>
+    <p class="modal-subtitle">
+      @if (step() === 1) { Step 1 of 2 — Account credentials }
+      @else { Step 2 of 2 — Link your player account }
+    </p>
+    <button mat-icon-button class="close-btn" (click)="close()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <!-- Step indicator -->
+  <div class="step-indicator">
+    <div class="step-dot" [class.active]="step() === 1" [class.done]="step() === 2">
+      @if (step() === 2) { <mat-icon>check</mat-icon> } @else { 1 }
+    </div>
+    <div class="step-line" [class.done]="step() === 2"></div>
+    <div class="step-dot" [class.active]="step() === 2">2</div>
+  </div>
+
+  <!-- ── STEP 1: Credentials ──────────────────────────────────────────────── -->
+  @if (step() === 1) {
+    <form [formGroup]="credentialsForm" (ngSubmit)="submitCredentials()" class="modal-form">
+      @if (error()) {
+        <div class="error-banner">
+          <mat-icon>error_outline</mat-icon>
+          {{ error() }}
+        </div>
+      }
+
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Email</mat-label>
+        <input matInput type="email" formControlName="emailAddress"
+               placeholder="you@example.com" autocomplete="email" />
+        <mat-icon matSuffix>email</mat-icon>
+        @if (credentialsForm.controls.emailAddress.hasError('required') && credentialsForm.controls.emailAddress.touched) {
+          <mat-error>Email is required</mat-error>
+        }
+        @if (credentialsForm.controls.emailAddress.hasError('email') && credentialsForm.controls.emailAddress.touched) {
+          <mat-error>Enter a valid email</mat-error>
+        }
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Password</mat-label>
+        <input matInput [type]="hidePassword() ? 'password' : 'text'"
+               formControlName="password" autocomplete="new-password" />
+        <button mat-icon-button matSuffix type="button" (click)="hidePassword.set(!hidePassword())">
+          <mat-icon>{{ hidePassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+        </button>
+        @if (credentialsForm.controls.password.hasError('required') && credentialsForm.controls.password.touched) {
+          <mat-error>Password is required</mat-error>
+        }
+        @if (credentialsForm.controls.password.hasError('minlength') && credentialsForm.controls.password.touched) {
+          <mat-error>At least 8 characters</mat-error>
+        }
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Confirm Password</mat-label>
+        <input matInput [type]="hideConfirm() ? 'password' : 'text'"
+               formControlName="password_confirm" autocomplete="new-password" />
+        <button mat-icon-button matSuffix type="button" (click)="hideConfirm.set(!hideConfirm())">
+          <mat-icon>{{ hideConfirm() ? 'visibility_off' : 'visibility' }}</mat-icon>
+        </button>
+        @if (credentialsForm.hasError('passwordMismatch') && credentialsForm.controls.password_confirm.touched) {
+          <mat-error>Passwords do not match</mat-error>
+        }
+      </mat-form-field>
+
+      <button mat-flat-button type="submit" class="submit-btn"
+              [disabled]="credentialsForm.invalid">
+        <ng-container>
+          Continue
+          <mat-icon iconPositionEnd>arrow_forward</mat-icon>
+        </ng-container>
+      </button>
+    </form>
+  }
+
+  <!-- ── STEP 2: Link Player Account ─────────────────────────────────────── -->
+  @if (step() === 2) {
+    <div class="modal-form">
+      @if (error()) {
+        <div class="error-banner">
+          <mat-icon>error_outline</mat-icon>
+          {{ error() }}
+        </div>
+      }
+
+      <p class="step2-hint">
+        Link your League of Legends account to your NexusIQ profile (required).
+        Your in-game name will be used as your display name.
+      </p>
+
+      <!-- Search form -->
+      <form [formGroup]="playerSearchForm" (ngSubmit)="searchPlayer()" class="search-row">
+        <app-player-search-input
+          [formGroup]="playerSearchForm"
+          namePlaceholder="Faker"
+          tagPlaceholder="KR1"
+        />
+        <button mat-flat-button type="submit" class="search-btn"
+                [disabled]="playerSearchForm.invalid || searchLoading()">
+          @if (searchLoading()) {
+            <mat-spinner diameter="18" />
+          } @else {
+            <mat-icon>search</mat-icon>
+          }
+        </button>
+      </form>
+
+      @if (searchError()) {
+        <div class="error-banner">
+          <mat-icon>error_outline</mat-icon>
+          {{ searchError() }}
+        </div>
+      }
+
+      <!-- Search result: click to select, then Create Account -->
+      @if (foundSummoner(); as s) {
+        <div
+          class="summoner-result"
+          [class.selected]="selectedSummoner()?.puuid === s.puuid"
+          (click)="selectSummoner(s)"
+          role="button"
+          tabindex="0"
+          (keydown.enter)="selectSummoner(s)"
+          (keydown.space)="selectSummoner(s); $event.preventDefault()"
+        >
+          <div class="summoner-icon">
+            <img [src]="ddragon.profileIconUrl(s.profile_icon)"
+                 [alt]="s.riot_id" class="profile-icon-img" />
+          </div>
+          <div class="summoner-info">
+            <p class="summoner-name">{{ s.riot_id }}</p>
+            <p class="summoner-meta">Level {{ s.summoner_level }} · {{ s.region }}</p>
+          </div>
+          <mat-icon class="summoner-check">check_circle</mat-icon>
+        </div>
+
+        <p class="step2-select-hint">Click the result above to select your account, then:</p>
+        <button mat-flat-button class="submit-btn" (click)="finishRegistration()"
+                [disabled]="loading() || !selectedSummoner()">
+          @if (loading()) {
+            <mat-spinner diameter="20" />
+          } @else {
+            <ng-container>
+              Create Account
+            </ng-container>
+          }
+        </button>
+      }
+
+      <div class="step2-actions">
+        <button mat-button class="back-btn" (click)="back()" [disabled]="loading()">
+          <mat-icon>arrow_back</mat-icon>
+          Back
+        </button>
+      </div>
+    </div>
+  }
+</div>

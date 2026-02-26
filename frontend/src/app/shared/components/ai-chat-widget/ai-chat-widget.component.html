@@ -1,0 +1,72 @@
+<!-- Floating Trigger Button -->
+<button class="chat-trigger" (click)="toggleChat()" [class.open]="isOpen()">
+  <mat-icon>{{ isOpen() ? 'close' : 'smart_toy' }}</mat-icon>
+</button>
+
+<!-- Chat Window -->
+@if (isOpen()) {
+  <div class="chat-window">
+    <!-- Header -->
+    <div class="chat-header">
+      <div class="chat-header-info">
+        <div class="chat-avatar">🤖</div>
+        <div>
+          <p class="chat-name">NexusIQ Coach</p>
+          <p class="chat-status">
+            <span class="status-dot"></span>
+            AI Powered
+          </p>
+        </div>
+      </div>
+      <span class="premium-badge">AI</span>
+    </div>
+
+    <!-- Messages -->
+    <div class="chat-messages" #messagesContainer>
+      @for (msg of messages(); track $index) {
+        <div class="message" [class.user]="msg.role === 'user'" [class.assistant]="msg.role === 'assistant'">
+          @if (msg.role === 'assistant') {
+            <div class="msg-avatar">🤖</div>
+          }
+          <div class="msg-bubble">
+            <p class="msg-text">{{ msg.content }}</p>
+            <span class="msg-time">{{ msg.timestamp | date: 'HH:mm' }}</span>
+          </div>
+        </div>
+      }
+      @if (loading()) {
+        <div class="message assistant">
+          <div class="msg-avatar">🤖</div>
+          <div class="msg-bubble typing">
+            <span></span><span></span><span></span>
+          </div>
+        </div>
+      }
+    </div>
+
+    <!-- Input -->
+    <div class="chat-input-area">
+      <div class="input-row">
+        <textarea
+          class="chat-input"
+          placeholder="Ask about champions, patches, strategies..."
+          [value]="inputText()"
+          (input)="inputText.set($any($event.target).value)"
+          (keydown)="onKeyDown($event)"
+          rows="1"
+        ></textarea>
+        <button
+          class="send-btn"
+          (click)="sendMessage()"
+          [disabled]="!inputText().trim() || loading()"
+        >
+          <mat-icon>send</mat-icon>
+        </button>
+      </div>
+      <button class="clear-btn" (click)="clearChat()">
+        <mat-icon>delete_sweep</mat-icon>
+        Clear chat
+      </button>
+    </div>
+  </div>
+}

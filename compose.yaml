@@ -6,6 +6,26 @@ services:
     image: nexus-iq/backend
     ports:
       - 8000:8000
+    volumes:
+      - ./ddragon:/usr/src/ddragon:ro
+    environment:
+      DDragon_CACHE_DIR: /usr/src/ddragon/cdn
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    image: nexus-iq/frontend
+    environment:
+      NODE_ENV: development
+      BACKEND_URL: http://backend:8000
+    ports:
+      - 4200:4200
+    develop:
+      watch:
+        - action: sync
+          path: ./frontend
+          target: /app
 
   database:
     image: postgres:18-alpine

@@ -1,0 +1,323 @@
+<app-navbar (openLogin)="openLogin()" (openRegister)="openRegister()" />
+
+@if (loadingSummoner()) {
+  <div class="loading-state">
+    <mat-spinner diameter="48" />
+    <p>Loading player data...</p>
+  </div>
+} @else if (error()) {
+  <div class="error-state">
+    <mat-icon class="error-icon">person_off</mat-icon>
+    <h2>Player Not Found</h2>
+    <p>{{ error() }}</p>
+    <button mat-flat-button routerLink="/" class="back-btn">Back to Home</button>
+  </div>
+} @else if (summoner()) {
+  <!-- Player Header -->
+  <div class="player-header">
+    <div class="header-bg">
+      <img
+        [src]="getChampionIconUrl('Jinx')"
+        alt="Champion splash"
+        class="header-splash"
+      />
+      <div class="header-overlay"></div>
+    </div>
+
+    <div class="header-content">
+      <div class="header-inner">
+        <!-- Summoner Info -->
+        <div class="summoner-info">
+          <div class="summoner-icon">
+            <img
+              [src]="profileIconUrl(summoner()!.profile_icon)"
+              [alt]="summoner()!.summoner_name"
+              class="icon-img"
+              (error)="$any($event.target).src = profileIconUrl(1)"
+            />
+            <span class="summoner-level">{{ summoner()!.summoner_level }}</span>
+          </div>
+          <div class="summoner-details">
+            <h1 class="summoner-name">{{ summoner()!.summoner_name }}</h1>
+            <p class="summoner-riot-id">{{ summoner()!.riot_id }}</p>
+            <div class="summoner-meta">
+              <span class="meta-tag">{{ summoner()!.region }}</span>
+              @if (getSoloQueue()) {
+                <span class="meta-tag gold">{{ getSoloQueue()!.tier }} {{ getSoloQueue()!.rank }}</span>
+              }
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Stats -->
+        <div class="quick-stats">
+          @if (getSoloQueue(); as sq) {
+            <div class="quick-stat">
+              <span class="qs-value">{{ (sq.win_rate * 100).toFixed(0) }}%</span>
+              <span class="qs-label">Win Rate</span>
+            </div>
+            <div class="quick-stat-divider"></div>
+            <div class="quick-stat">
+              <span class="qs-value">{{ sq.total_games }}</span>
+              <span class="qs-label">Games</span>
+            </div>
+            <div class="quick-stat-divider"></div>
+            <div class="quick-stat">
+              <span class="qs-value">{{ sq.league_points }}</span>
+              <span class="qs-label">LP</span>
+            </div>
+          }
+          <button mat-stroked-button class="refresh-btn" (click)="refreshSummoner()">
+            <mat-icon>refresh</mat-icon>
+            Update
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs-container">
+    <mat-tab-group animationDuration="200ms" class="player-tabs">
+
+      <!-- Overview Tab -->
+      <mat-tab label="Overview">
+        <div class="tab-content">
+          <div class="overview-grid">
+
+            <!-- Recent Matches -->
+            <div class="section-card">
+              <div class="section-header">
+                <h3 class="section-title">Recent Matches</h3>
+                @if (loadingMatches()) {
+                  <mat-spinner diameter="20" />
+                }
+              </div>
+
+              @if (matches().length === 0 && !loadingMatches()) {
+                <div class="empty-state">
+                  <mat-icon>sports_esports</mat-icon>
+                  <p>No recent matches found</p>
+                </div>
+              }
+
+              <div class="matches-list">
+                @for (match of matches().slice(0, 5); track match.match_id) {
+                  @let participant = getPlayerParticipant(match);
+                  @let won = didWin(match);
+                  <div class="match-row" [class.win]="won" [class.loss]="!won">
+                    <div class="match-result-bar" [class.win-bar]="won" [class.loss-bar]="!won"></div>
+                    <div class="match-champion">
+                      <img
+                        [src]="getChampionIconUrl(participant?.champion_name || 'Jinx')"
+                        [alt]="participant?.champion_name"
+                        class="champ-icon"
+                        (error)="$any($event.target).src = getChampionIconUrl('Jinx')"
+                      />
+                    </div>
+                    <div class="match-info">
+                      <p class="match-champ-name">{{ participant?.champion_name }}</p>
+                      <p class="match-mode">{{ match.game_mode }}</p>
+                    </div>
+                    <div class="match-kda">
+                      <p class="kda-score">
+                        <span class="kda-k">{{ participant?.kills }}</span>
+                        /
+                        <span class="kda-d">{{ participant?.deaths }}</span>
+                        /
+                        <span class="kda-a">{{ participant?.assists }}</span>
+                      </p>
+                      <p class="kda-ratio">{{ participant?.kda?.toFixed(2) }} KDA</p>
+                    </div>
+                    <div class="match-meta">
+                      <span class="match-outcome" [class.win-text]="won" [class.loss-text]="!won">
+                        {{ won ? 'Victory' : 'Defeat' }}
+                      </span>
+                      <span class="match-duration">{{ getGameDuration(match) }}</span>
+                    </div>
+                  </div>
+                }
+              </div>
+            </div>
+
+            <!-- Rank Cards -->
+            <div class="rank-cards">
+              @if (getSoloQueue(); as sq) {
+                <div class="rank-card-sm">
+                  <p class="rank-card-label">Solo / Duo</p>
+                  <div class="rank-card-tier">{{ sq.tier }} {{ sq.rank }}</div>
+                  <div class="rank-card-stats">
+                    <span>{{ sq.wins }}W {{ sq.losses }}L</span>
+                    <span class="win-rate-text">{{ (sq.win_rate * 100).toFixed(0) }}% WR</span>
+                  </div>
+                  <div class="rank-progress">
+                    <div class="rank-progress-fill" [style.width.%]="sq.win_rate * 100"></div>
+                  </div>
+                </div>
+              }
+              @if (getFlexQueue(); as fq) {
+                <div class="rank-card-sm">
+                  <p class="rank-card-label">Flex 5v5</p>
+                  <div class="rank-card-tier">{{ fq.tier }} {{ fq.rank }}</div>
+                  <div class="rank-card-stats">
+                    <span>{{ fq.wins }}W {{ fq.losses }}L</span>
+                    <span class="win-rate-text">{{ (fq.win_rate * 100).toFixed(0) }}% WR</span>
+                  </div>
+                  <div class="rank-progress">
+                    <div class="rank-progress-fill" [style.width.%]="fq.win_rate * 100"></div>
+                  </div>
+                </div>
+              }
+            </div>
+
+          </div>
+        </div>
+      </mat-tab>
+
+      <!-- Champions Tab -->
+      <mat-tab label="Champions">
+        <div class="tab-content">
+          <div class="section-card">
+            <h3 class="section-title">Top Champions</h3>
+            @if (getTopChampions().length === 0) {
+              <div class="empty-state">
+                <mat-icon>sports_esports</mat-icon>
+                <p>No champion data available yet</p>
+              </div>
+            }
+            <div class="champions-list">
+              @for (champ of getTopChampions(); track champ.name) {
+                <div class="champion-row">
+                  <img
+                    [src]="getChampionIconUrl(champ.name)"
+                    [alt]="champ.name"
+                    class="champ-icon-lg"
+                    (error)="$any($event.target).src = getChampionIconUrl('Jinx')"
+                  />
+                  <div class="champ-info">
+                    <p class="champ-name">{{ champ.name }}</p>
+                    <p class="champ-games">{{ champ.games }} games</p>
+                  </div>
+                  <div class="champ-stats">
+                    <span class="champ-wr" [class.good-wr]="champ.winRate >= 50">
+                      {{ champ.winRate.toFixed(0) }}% WR
+                    </span>
+                    <span class="champ-kda">{{ champ.kda.toFixed(2) }} KDA</span>
+                  </div>
+                  <div class="champ-bar-wrap">
+                    <div class="champ-bar" [style.width.%]="champ.winRate"></div>
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+      </mat-tab>
+
+      <!-- Matches Tab -->
+      <mat-tab label="Matches">
+        <div class="tab-content">
+          <div class="section-card">
+            <div class="section-header">
+              <h3 class="section-title">Match History</h3>
+              @if (loadingMatches()) {
+                <mat-spinner diameter="20" />
+              }
+            </div>
+            <div class="matches-list">
+              @for (match of matches(); track match.match_id) {
+                @let participant = getPlayerParticipant(match);
+                @let won = didWin(match);
+                <div class="match-row" [class.win]="won" [class.loss]="!won">
+                  <div class="match-result-bar" [class.win-bar]="won" [class.loss-bar]="!won"></div>
+                  <div class="match-champion">
+                    <img
+                      [src]="getChampionIconUrl(participant?.champion_name || 'Jinx')"
+                      [alt]="participant?.champion_name"
+                      class="champ-icon"
+                      (error)="$any($event.target).src = getChampionIconUrl('Jinx')"
+                    />
+                  </div>
+                  <div class="match-info">
+                    <p class="match-champ-name">{{ participant?.champion_name }}</p>
+                    <p class="match-mode">{{ match.game_mode }} · {{ match.game_start | date: 'MMM d' }}</p>
+                  </div>
+                  <div class="match-kda">
+                    <p class="kda-score">
+                      <span class="kda-k">{{ participant?.kills }}</span>
+                      /
+                      <span class="kda-d">{{ participant?.deaths }}</span>
+                      /
+                      <span class="kda-a">{{ participant?.assists }}</span>
+                    </p>
+                    <p class="kda-ratio">{{ participant?.kda?.toFixed(2) }} KDA</p>
+                  </div>
+                  <div class="match-extra">
+                    <p class="match-cs">{{ participant?.total_cs }} CS</p>
+                    <p class="match-gold">{{ participant?.gold_earned?.toLocaleString() }}g</p>
+                  </div>
+                  <div class="match-meta">
+                    <span class="match-outcome" [class.win-text]="won" [class.loss-text]="!won">
+                      {{ won ? 'Victory' : 'Defeat' }}
+                    </span>
+                    <span class="match-duration">{{ getGameDuration(match) }}</span>
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+      </mat-tab>
+
+      <!-- Performance Tab -->
+      <mat-tab label="Performance">
+        <div class="tab-content">
+          <div class="perf-grid">
+            @if (matches().length > 0) {
+              <div class="section-card">
+                <h3 class="section-title">Performance Metrics</h3>
+                <div class="perf-stats-grid">
+                  <div class="perf-stat">
+                    <span class="perf-value">{{ avgKills() }}</span>
+                    <span class="perf-label">Avg Kills</span>
+                  </div>
+                  <div class="perf-stat">
+                    <span class="perf-value text-red">{{ avgDeaths() }}</span>
+                    <span class="perf-label">Avg Deaths</span>
+                  </div>
+                  <div class="perf-stat">
+                    <span class="perf-value">{{ avgAssists() }}</span>
+                    <span class="perf-label">Avg Assists</span>
+                  </div>
+                  <div class="perf-stat">
+                    <span class="perf-value text-gold">{{ avgCs() }}</span>
+                    <span class="perf-label">Avg CS</span>
+                  </div>
+                  <div class="perf-stat">
+                    <span class="perf-value">{{ avgVision() }}</span>
+                    <span class="perf-label">Avg Vision Score</span>
+                  </div>
+                  <div class="perf-stat">
+                    <span class="perf-value text-gold">{{ recentWinRate() }}%</span>
+                    <span class="perf-label">Win Rate (last {{ matches().length }})</span>
+                  </div>
+                </div>
+              </div>
+            } @else {
+              <div class="section-card">
+                <div class="empty-state">
+                  <mat-icon>analytics</mat-icon>
+                  <p>No match data available for performance analysis</p>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      </mat-tab>
+
+    </mat-tab-group>
+  </div>
+}
+
+<!-- AI Chat Widget -->
+<app-ai-chat-widget />

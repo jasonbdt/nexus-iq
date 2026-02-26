@@ -80,23 +80,61 @@ async def search_similar(
     query_embedding: list[float],
     patch_versions: DeterminedPatchVersions,
     top_k: int = None,
+    keywords: list[str] | None = None,
 ) -> list[dict]:
-    """Search for similar vectors and return results with text and metadata."""
+    """Search for similar vectors and return results with text and metadata.
+
+    Parameters
+    ----------
+    query_embedding:
+        Dense vector produced by the embedding model.
+    patch_versions:
+        Version range filter (gte / lte).
+    top_k:
+        Maximum number of results to return.
+    keywords:
+        Optional list of words that *must* appear in the chunk text.
+        When provided, Qdrant's full-text ``MatchText`` filter is applied so
+        that only chunks containing at least one keyword are considered.
+        This is the primary fix for champion-specific queries: passing
+        ``["Malphite"]`` guarantees every returned chunk mentions Malphite,
+        regardless of cosine similarity.
+    """
     if top_k is None:
         top_k = int(os.getenv("TOP_K"))
+
+    def _to_float(value: float | str, default: float) -> float:
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return default
+
+    version_condition = FieldCondition(
+        key="patch_version",
+        range=Range(
+            gte=_to_float(patch_versions.gte, 0.0),
+            lte=_to_float(patch_versions.lte, 99.99),
+        ),
+    )
+
+    if keywords:
+        # should conditions act as OR — any keyword match is sufficient
+        keyword_conditions = [
+            FieldCondition(key="text", match=MatchText(text=kw))
+            for kw in keywords
+        ]
+        query_filter = Filter(
+            must=[version_condition],
+            should=keyword_conditions,
+        )
+    else:
+        query_filter = Filter(must=[version_condition])
 
     results = await client.query_points(
         collection_name=os.getenv("QDRANT_COLLECTION_NAME"),
         query=query_embedding,
         limit=top_k,
-        query_filter=Filter(
-            must=[
-                FieldCondition(key="patch_version", range=Range(
-                    lte=float(patch_versions.lte),
-                    gte=float(patch_versions.gte)
-                ))
-            ]
-        )
+        query_filter=query_filter,
     )
 
     return [
@@ -104,7 +142,7 @@ async def search_similar(
             "text": hit.payload.get("text", ""),
             "score": hit.score,
             "source": hit.payload.get("source", ""),
-            "patch_version": hit.payload.get("patch_version", "")
+            "patch_version": hit.payload.get("patch_version", ""),
         }
         for hit in results.points
     ]

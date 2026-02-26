@@ -5,3 +5,13 @@ services:
       - run
       - ./app/main.py
     env_file: ".env.prod"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: production
+      BACKEND_URL: http://backend:8000
+    ports:
+      - 8080:8080

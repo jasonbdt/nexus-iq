@@ -1,0 +1,238 @@
+<app-navbar (openLogin)="openLogin()" (openRegister)="openRegister()" />
+
+<div class="settings-page">
+  <div class="page-header">
+    <h1 class="page-title">Settings</h1>
+    <p class="page-subtitle">Manage your account, player link, and preferences</p>
+  </div>
+
+  <div class="settings-grid">
+    <!-- Primary Player Account -->
+    <div class="settings-card">
+      <div class="card-header">
+        <mat-icon class="card-icon">sports_esports</mat-icon>
+        <h2 class="card-title">Primary Player Account</h2>
+      </div>
+      <p class="card-desc">Your main League of Legends account (required). You can only change this every 30 days.</p>
+
+      @if (user()?.linked_summoner; as ls) {
+        <div class="linked-summoner">
+          <img [src]="profileIconUrl(ls.profile_icon)" [alt]="ls.riot_id" class="profile-icon" />
+          <div class="linked-info">
+            <p class="linked-name">{{ ls.riot_id }}</p>
+            <p class="linked-meta">Level {{ ls.summoner_level }} · {{ ls.region }}</p>
+          </div>
+        </div>
+        @if (!canChangeSummoner) {
+          <p class="cooldown-notice">
+            You can change your linked account in {{ daysUntilSummonerChange }} days.
+          </p>
+        }
+      }
+
+      @if (canChangeSummoner) {
+        <form [formGroup]="playerSearchForm" (ngSubmit)="searchPlayerForPrimary()" class="search-form">
+          <app-player-search-input
+            [formGroup]="playerSearchForm"
+            namePlaceholder="Faker"
+            tagPlaceholder="KR1"
+          />
+          <button mat-flat-button type="submit" class="search-btn" [disabled]="playerSearchForm.invalid || searchLoading()">
+            @if (searchLoading()) {
+              <mat-spinner diameter="18" />
+            } @else {
+              <mat-icon>search</mat-icon>
+            }
+          </button>
+        </form>
+
+        @if (searchError()) {
+          <p class="error-text">{{ searchError() }}</p>
+        }
+
+        @if (foundSummoner(); as s) {
+          <div class="found-result">
+            <img [src]="profileIconUrl(s.profile_icon)" [alt]="s.riot_id" class="profile-icon" />
+            <span>{{ s.riot_id }}</span>
+            <button mat-flat-button color="primary" (click)="linkSummoner(0)" [disabled]="loading()">
+              @if (loading()) { <mat-spinner diameter="18" /> } @else { Link Primary }
+            </button>
+          </div>
+        }
+
+        @if (linkSuccess()) {
+          <p class="success-text">Account linked successfully!</p>
+        }
+        @if (linkError()) {
+          <p class="error-text">{{ linkError() }}</p>
+        }
+      }
+    </div>
+
+    <!-- Additional Player Accounts (Premium only) -->
+    @if (authService.isPaidMember()) {
+      <div class="settings-card">
+        <div class="card-header">
+          <mat-icon class="card-icon">add_circle</mat-icon>
+          <h2 class="card-title">Additional Player Accounts</h2>
+        </div>
+        <p class="card-desc">As a Premium member, you can add up to 2 extra accounts for NexusIQ analysis.</p>
+
+        @for (add of (user()?.additional_summoners ?? []); track add.puuid) {
+          <div class="linked-summoner additional-summoner">
+              <img [src]="profileIconUrl(add.profile_icon)" [alt]="add.riot_id" class="profile-icon" />
+              <div class="linked-info">
+                <p class="linked-name">{{ add.riot_id }}</p>
+                <p class="linked-meta">Level {{ add.summoner_level }} · {{ add.region }}</p>
+              </div>
+              @if (add.link_id != null) {
+                <button mat-icon-button color="warn" (click)="removeAdditionalSummoner(add.link_id!)" [disabled]="loading()" title="Remove account">
+                  <mat-icon>close</mat-icon>
+                </button>
+              }
+          </div>
+        }
+
+        @if ((user()?.additional_summoners?.length ?? 0) < 2) {
+          <form [formGroup]="additionalSearchForm" (ngSubmit)="searchPlayerForAdditional()" class="search-form">
+            <app-player-search-input
+              [formGroup]="additionalSearchForm"
+              namePlaceholder="Alt account"
+              tagPlaceholder="TAG"
+            />
+            <button mat-flat-button type="submit" class="search-btn" [disabled]="additionalSearchForm.invalid || searchLoading()">
+              @if (searchLoading()) {
+                <mat-spinner diameter="18" />
+              } @else {
+                <mat-icon>search</mat-icon>
+              }
+            </button>
+          </form>
+
+          @if (additionalSearchError()) {
+            <p class="error-text">{{ additionalSearchError() }}</p>
+          }
+
+          @if (foundAdditionalSummoner(); as s) {
+            <div class="found-result">
+              <img [src]="profileIconUrl(s.profile_icon)" [alt]="s.riot_id" class="profile-icon" />
+              <span>{{ s.riot_id }}</span>
+              <button mat-flat-button color="primary" (click)="linkAdditionalSummoner()" [disabled]="loading()">
+                @if (loading()) { <mat-spinner diameter="18" /> } @else { Add Account }
+              </button>
+            </div>
+          }
+
+          @if (linkSuccess()) {
+            <p class="success-text">Account added successfully!</p>
+          }
+          @if (linkError()) {
+            <p class="error-text">{{ linkError() }}</p>
+          }
+        }
+      </div>
+    }
+
+    <!-- Email -->
+    <div class="settings-card">
+      <div class="card-header">
+        <mat-icon class="card-icon">email</mat-icon>
+        <h2 class="card-title">Email Address</h2>
+      </div>
+      <p class="card-desc">Current: {{ user()?.emailAddress }}</p>
+      <form [formGroup]="emailForm" (ngSubmit)="updateEmail()" class="form">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>New Email</mat-label>
+          <input matInput type="email" formControlName="emailAddress" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Current Password</mat-label>
+          <input matInput [type]="hideCurrentPassword() ? 'password' : 'text'" formControlName="current_password" />
+          <button mat-icon-button matSuffix type="button" (click)="hideCurrentPassword.set(!hideCurrentPassword())">
+            <mat-icon>{{ hideCurrentPassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+          </button>
+        </mat-form-field>
+        <button mat-flat-button type="submit" [disabled]="emailForm.invalid || loading()">
+          @if (loading()) { <mat-spinner diameter="18" /> } @else { Update Email }
+        </button>
+        @if (emailSuccess()) {
+          <p class="success-text">Email updated successfully.</p>
+        }
+        @if (emailError()) {
+          <p class="error-text">{{ emailError() }}</p>
+        }
+      </form>
+    </div>
+
+    <!-- Password -->
+    <div class="settings-card">
+      <div class="card-header">
+        <mat-icon class="card-icon">lock</mat-icon>
+        <h2 class="card-title">Password</h2>
+      </div>
+      <form [formGroup]="passwordForm" (ngSubmit)="updatePassword()" class="form">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Current Password</mat-label>
+          <input matInput [type]="hideCurrentPassword() ? 'password' : 'text'" formControlName="current_password" />
+          <button mat-icon-button matSuffix type="button" (click)="hideCurrentPassword.set(!hideCurrentPassword())">
+            <mat-icon>{{ hideCurrentPassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+          </button>
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>New Password</mat-label>
+          <input matInput [type]="hideNewPassword() ? 'password' : 'text'" formControlName="new_password" />
+          <button mat-icon-button matSuffix type="button" (click)="hideNewPassword.set(!hideNewPassword())">
+            <mat-icon>{{ hideNewPassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+          </button>
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Confirm New Password</mat-label>
+          <input matInput [type]="hideNewPasswordConfirm() ? 'password' : 'text'" formControlName="new_password_confirm" />
+          <button mat-icon-button matSuffix type="button" (click)="hideNewPasswordConfirm.set(!hideNewPasswordConfirm())">
+            <mat-icon>{{ hideNewPasswordConfirm() ? 'visibility_off' : 'visibility' }}</mat-icon>
+          </button>
+        </mat-form-field>
+        @if (passwordForm.hasError('passwordMismatch') && passwordForm.controls.new_password_confirm.touched) {
+          <p class="error-text">Passwords do not match</p>
+        }
+        <button mat-flat-button type="submit" [disabled]="passwordForm.invalid || loading()">
+          @if (loading()) { <mat-spinner diameter="18" /> } @else { Update Password }
+        </button>
+        @if (passwordSuccess()) {
+          <p class="success-text">Password updated successfully.</p>
+        }
+        @if (passwordError()) {
+          <p class="error-text">{{ passwordError() }}</p>
+        }
+      </form>
+    </div>
+
+    <!-- Language -->
+    <div class="settings-card">
+      <div class="card-header">
+        <mat-icon class="card-icon">language</mat-icon>
+        <h2 class="card-title">Language</h2>
+      </div>
+      <form [formGroup]="languageForm" (ngSubmit)="updateLanguage()" class="form">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Preferred language</mat-label>
+          <mat-select formControlName="language" (selectionChange)="updateLanguage()">
+            @for (opt of languages; track opt.value) {
+              <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      </form>
+    </div>
+
+    <!-- Subscriptions -->
+    <div class="settings-card">
+      <div class="card-header">
+        <mat-icon class="card-icon">star</mat-icon>
+        <h2 class="card-title">Subscription</h2>
+      </div>
+      <p class="card-desc">Current plan: {{ user()?.subscription_tier || 'free' | titlecase }}</p>
+      <p class="card-desc muted">Subscription management will be available soon.</p>
+    </div>
+  </div>
+</div>

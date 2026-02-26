@@ -1,17 +1,20 @@
 import os
 import logging
+from pathlib import Path
+
 from contextlib import asynccontextmanager
 
 import aiohttp
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 
 from .internal.db import create_db_and_tables
 from .internal.logging import configure_logging
 from .dependencies import APP_ENV
 from .internal.services.vector_store import ensure_collection
 from .internal.session import init_session, close_session
-from .routers import auth, matches, rag, summoners, users
+from .routers import auth, coach, matches, rag, summoners, users
 
 
 @asynccontextmanager
@@ -42,8 +45,18 @@ app = FastAPI(
 app.include_router(auth.router)
 app.include_router(summoners.router)
 app.include_router(rag.router)
+app.include_router(coach.router)
 app.include_router(matches.router)
 app.include_router(users.router)
+
+# DDragon static assets (profile icons, champion images, etc.)
+# Served at /cdn/... to match DDragon path structure (no /ddragon prefix)
+# Use DDragon_CACHE_DIR env var to override (e.g. /usr/src/ddragon/cdn in Docker)
+_ddragon_cdn = Path(
+    os.getenv("DDragon_CACHE_DIR", "")
+    or str(Path(__file__).resolve().parent.parent / "ddragon" / "cdn")
+)
+_ddragon_cdn = Path(_ddragon_cdn)
 
 origins = ["*"]
 
@@ -61,3 +74,17 @@ def index():
         "status": 200,
         "message": "It work's!"
     }
+
+
+@app.get("/cdn/{file_path:path}")
+def serve_ddragon(file_path: str):
+    """Serve DDragon static files with explicit route to avoid path resolution issues."""
+    if not _ddragon_cdn.exists():
+        raise HTTPException(status_code=404, detail="DDragon cache not configured")
+    # Prevent path traversal
+    full_path = (_ddragon_cdn / file_path).resolve()
+    if not str(full_path).startswith(str(_ddragon_cdn.resolve())):
+        raise HTTPException(status_code=403, detail="Invalid path")
+    if not full_path.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+    return FileResponse(full_path)
