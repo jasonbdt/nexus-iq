@@ -1,17 +1,25 @@
-from typing import Optional, Self, Any
+"""SQLModel and Pydantic models for the application domain."""
+
+from typing import Optional, Self
 from datetime import datetime, timezone
 from enum import Enum
 
-from sqlalchemy import DateTime, UniqueConstraint, func, JSON
+from sqlalchemy import DateTime, UniqueConstraint, func
 from sqlmodel import Column, Field, Relationship, SQLModel
 from pydantic import BaseModel, computed_field
 
+# SQLAlchemy's func proxy is callable at runtime; Pylint cannot infer this.
+# pylint: disable=not-callable
+
 
 def utc_now() -> datetime:
+    """Return the current UTC datetime."""
     return datetime.now(timezone.utc)
 
 
-class UserRole(str, Enum):
+class UserRole(str, Enum):  # pylint: disable=invalid-name
+    """Enumeration of user permission roles."""
+
     administrator = "administrator"
     moderator = "moderator"
     paid_member = "paid_member"
@@ -74,6 +82,8 @@ class UserRoleLink(SQLModel, table=True):
 
 
 class User(SQLModel, table=True):
+    """ORM model for the users table."""
+
     __tablename__ = "users"
 
     id: int | None = Field(default=None, primary_key=True)
@@ -106,6 +116,8 @@ class User(SQLModel, table=True):
 
 
 class Summoner(SQLModel, table=True):
+    """ORM model for the summoners table."""
+
     __tablename__ = "summoners"
 
     id: int | None = Field(default=None, primary_key=True)
@@ -148,10 +160,13 @@ class Summoner(SQLModel, table=True):
     @computed_field
     @property
     def riot_id(self: Self) -> str:
+        """Return Riot ID as name#tag."""
         return f"{self.summoner_name}#{self.tag_line}"
 
 
 class SummonerLeagues(SQLModel, table=True):
+    """ORM model for per-summoner league entries."""
+
     __tablename__ = "summoner_leagues"
 
     id: int | None = Field(default=None, primary_key=True)
@@ -171,15 +186,19 @@ class SummonerLeagues(SQLModel, table=True):
     @computed_field
     @property
     def total_games(self: Self) -> int:
+        """Return total games played."""
         return self.wins + self.losses
 
     @computed_field
     @property
     def win_rate(self: Self) -> float:
+        """Return win rate as a percentage."""
         return self.wins / self.total_games * 100
 
 
 class Match(SQLModel, table=True):
+    """ORM model for the matches table."""
+
     __tablename__ = "matches"
 
     id: int | None = Field(default=None, primary_key=True)
@@ -209,6 +228,8 @@ class Match(SQLModel, table=True):
 
 
 class MatchTeam(SQLModel, table=True):
+    """ORM model for a team within a match."""
+
     __tablename__ = "match_teams"
 
     id: int | None = Field(default=None, primary_key=True)
@@ -224,6 +245,8 @@ class MatchTeam(SQLModel, table=True):
 
 
 class MatchTeamBans(SQLModel, table=True):
+    """ORM model for champion bans within a team."""
+
     __tablename__ = "match_team_bans"
 
     id: int | None = Field(default=None, primary_key=True)
@@ -236,6 +259,8 @@ class MatchTeamBans(SQLModel, table=True):
 
 
 class MatchTeamObjectives(SQLModel, table=True):
+    """ORM model for team objectives within a match."""
+
     __tablename__ = "match_team_objectives"
 
     id: int | None = Field(default=None, primary_key=True)
@@ -249,6 +274,8 @@ class MatchTeamObjectives(SQLModel, table=True):
 
 
 class MatchParticipant(SQLModel, table=True):
+    """ORM model for a participant within a match."""
+
     __tablename__ = "match_participants"
 
     id: int | None = Field(default=None, primary_key=True)
@@ -304,6 +331,7 @@ class MatchParticipant(SQLModel, table=True):
     @computed_field
     @property
     def kda(self: Self) -> float:
+        """Calculate KDA ratio."""
         if self.deaths == 0:
             return round(self.kills + self.assists, 2)
 
@@ -312,10 +340,13 @@ class MatchParticipant(SQLModel, table=True):
     @computed_field
     @property
     def total_cs(self: Self) -> int:
+        """Return total creep score."""
         return self.total_minions_killed + self.neutral_minions_killed
 
 
 class MatchParticipantRunes(SQLModel, table=True):
+    """ORM model for rune selections of a match participant."""
+
     __tablename__ = "match_participant_runes"
 
     id: int | None = Field(default=None, primary_key=True)
@@ -339,12 +370,16 @@ class MatchParticipantRunes(SQLModel, table=True):
 
 
 class SummonerMatchRead(BaseModel):
+    """Read schema for summoner identity in match context."""
+
     summoner_name: str = Field(alias="summoner_name")
     tag_line: str
     riot_id: str
 
 
 class MatchParticipantRunesRead(BaseModel):
+    """Read schema for participant rune selections."""
+
     primary_style: int
     primary_perk0: int
     primary_perk1: int
@@ -361,6 +396,8 @@ class MatchParticipantRunesRead(BaseModel):
 
 
 class MatchParticipantsRead(BaseModel):
+    """Read schema for a match participant."""
+
     champion_id: int
     champion_name: str
     kills: int
@@ -388,17 +425,23 @@ class MatchParticipantsRead(BaseModel):
 
 
 class MatchTeamBansRead(BaseModel):
+    """Read schema for a team ban."""
+
     champion_id: int
     pick_turn: int
 
 
 class MatchTeamObjectivesRead(BaseModel):
+    """Read schema for a team objective."""
+
     objective: str
     first: bool
     kills: int
 
 
 class MatchTeamsRead(BaseModel):
+    """Read schema for a match team."""
+
     team_id: int
     bans: list["MatchTeamBansRead"]
     objectives: list["MatchTeamObjectivesRead"]
@@ -407,6 +450,8 @@ class MatchTeamsRead(BaseModel):
 
 
 class MatchesRead(BaseModel):
+    """Read schema for a match."""
+
     match_id: str
     platform: str
     queue_id: int
@@ -424,6 +469,8 @@ class MatchesRead(BaseModel):
 
 
 class SummonerLeaguesRead(BaseModel):
+    """Read schema for a summoner league entry."""
+
     league_id: str
     queue_type: str
     tier: str
@@ -436,6 +483,8 @@ class SummonerLeaguesRead(BaseModel):
 
 
 class SummonerSearch(BaseModel):
+    """Read schema for summoner search results."""
+
     puuid: str
     region: str
     summoner_name: str
@@ -450,6 +499,8 @@ class SummonerSearch(BaseModel):
 
 
 class UserSignUpRequest(BaseModel):
+    """Request schema for user registration."""
+
     avatarName: str = ""
     emailAddress: str
     password: str
@@ -460,6 +511,8 @@ class UserSignUpRequest(BaseModel):
 
 
 class LinkedSummonerInfo(BaseModel):
+    """Schema for a linked summoner account."""
+
     puuid: str
     riot_id: str
     profile_icon: int
@@ -471,6 +524,8 @@ class LinkedSummonerInfo(BaseModel):
 
 
 class UserResponse(BaseModel):
+    """Response schema for user data."""
+
     avatarName: str
     emailAddress: str
     is_active: bool
@@ -485,6 +540,8 @@ class UserResponse(BaseModel):
 
 
 class UserUpdateRequest(BaseModel):
+    """Request schema for updating user data."""
+
     emailAddress: str | None = None
     current_password: str | None = None
     new_password: str | None = None
@@ -492,6 +549,8 @@ class UserUpdateRequest(BaseModel):
 
 
 class LinkSummonerRequest(BaseModel):
+    """Request schema for linking a summoner account."""
+
     gameName: str
     tagLine: str
     link_slot: int = 0  # 0=primary, 1-2=additional (Premium only)
@@ -500,6 +559,8 @@ class LinkSummonerRequest(BaseModel):
 # ── Coach / Chat ──────────────────────────────────────────────────────────────
 
 class CoachSession(SQLModel, table=True):
+    """ORM model for a coaching chat session."""
+
     __tablename__ = "coach_sessions"
 
     id: int | None = Field(default=None, primary_key=True)
@@ -519,6 +580,8 @@ class CoachSession(SQLModel, table=True):
 
 
 class CoachMessage(SQLModel, table=True):
+    """ORM model for a message within a coaching session."""
+
     __tablename__ = "coach_messages"
 
     id: int | None = Field(default=None, primary_key=True)
@@ -535,6 +598,8 @@ class CoachMessage(SQLModel, table=True):
 
 
 class CoachMessageRead(BaseModel):
+    """Read schema for a coaching message."""
+
     id: int
     role: str
     content: str
@@ -542,6 +607,8 @@ class CoachMessageRead(BaseModel):
 
 
 class CoachSessionRead(BaseModel):
+    """Read schema for a coaching session."""
+
     id: int
     title: str
     created_at: datetime
@@ -550,4 +617,8 @@ class CoachSessionRead(BaseModel):
 
 
 class CoachSessionCreate(BaseModel):
+    """Create schema for a new coaching session."""
+
     title: str = "New Session"
+
+# pylint: enable=not-callable
