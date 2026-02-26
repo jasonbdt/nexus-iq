@@ -6,7 +6,7 @@ for the facade layer.
 """
 
 from datetime import datetime, timezone
-from typing import Any, Optional, Self
+from typing import Optional, Self
 
 from pydantic import BaseModel, Field, computed_field
 
@@ -96,6 +96,8 @@ class MatchMetadata(BaseModel):
 
 
 class MatchParticipantPerkStats(BaseModel):
+    """Participant perk stat values (defense, flex, offense)."""
+
     defense: int
     flex: int
     offense: int
@@ -104,6 +106,8 @@ class MatchParticipantPerkStats(BaseModel):
 
 
 class MatchParticipantPerkStyleSelection(BaseModel):
+    """Single rune selection within a perk style."""
+
     perk: int
     var1: int
     var2: int
@@ -113,6 +117,8 @@ class MatchParticipantPerkStyleSelection(BaseModel):
 
 
 class MatchParticipantPerkStyle(BaseModel):
+    """Rune style (primary or secondary tree) with selections."""
+
     description: str
     selections: list[MatchParticipantPerkStyleSelection]
     style: int
@@ -311,6 +317,7 @@ class SummonerProfile(BaseModel):
     @computed_field
     @property
     def riot_id(self: Self) -> str:
+        """Return Riot ID as name#tag."""
         return f"{self.summoner_name}#{self.tag_line}"
 
 

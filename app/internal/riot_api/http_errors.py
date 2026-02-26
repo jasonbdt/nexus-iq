@@ -18,7 +18,7 @@ from .exceptions import (
 )
 
 
-def riot_exception_to_http(exc: RiotAPIError) -> HTTPException:
+def riot_exception_to_http(exc: RiotAPIError) -> HTTPException:  # pylint: disable=too-many-return-statements
     """
     Convert a Riot API exception to an appropriate HTTP exception.
 

@@ -25,7 +25,7 @@ class MatchClient(RiotAPIBase):
     Uses regional routing endpoints (americas, europe, asia, sea).
     """
 
-    async def get_match_ids_by_puuid(
+    async def get_match_ids_by_puuid(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self: Self,
         puuid: str,
         region: RiotRegion,

@@ -8,7 +8,7 @@ This is the primary interface for application code to interact with the Riot API
 from typing import List, Optional, Self, Union
 
 from . import RiotAPINotFoundError
-from .config import RiotAPIConfig, REGION_TO_PLATFORM
+from .config import RiotAPIConfig
 from .models import RiotError, SummonerProfile, SummonerLeagueInfo, Match  # , Match, MatchTimeline
 from .clients.account_client import AccountClient
 from .clients.summoner_client import SummonerClient
@@ -34,7 +34,7 @@ class RiotAPIFacade:
             leagues = riot_api.get_summoner_leagues(profile.region, profile.puuid)
     """
 
-    def __init__(
+    def __init__(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self: Self,
         config: RiotAPIConfig,
         account_client: Optional[AccountClient] = None,
@@ -86,13 +86,13 @@ class RiotAPIFacade:
             RiotAPINotFoundError: If summoner does not exist.
             RiotAPIError: For other API errors.
         """
-        logger.debug(f"Getting summoner: {player_name}#{tag_line}")
+        logger.debug("Getting summoner: %s#%s", player_name, tag_line)
 
         # Step 1: Resolve Riot ID to account info (includes PUUID)
         try:
             account = await self._account_client.get_by_riot_id(player_name, tag_line)
-        except RiotAPINotFoundError:
-            raise RiotAPINotFoundError(message="Summoner not found")
+        except RiotAPINotFoundError as exc:
+            raise RiotAPINotFoundError(message="Summoner not found") from exc
 
         # Step 2: Get region for LoL
         region = await self._account_client.get_active_region("lol", account.puuid)
@@ -130,7 +130,7 @@ class RiotAPIFacade:
         Returns:
             Summoner profile or None if not found.
         """
-        logger.debug(f"Getting summoner by PUUID: {puuid[:8]}...")
+        logger.debug("Getting summoner by PUUID: %s...", puuid[:8])
 
         try:
             # Get account info to get name/tag
@@ -149,15 +149,14 @@ class RiotAPIFacade:
                 revision_date=summoner.revision_datetime,
                 leagues=leagues
             )
-        except Exception as e:
-            logger.warning(f"Failed to get summoner by PUUID: {e}")
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            logger.warning("Failed to get summoner by PUUID: %s", exc)
             return None
 
     # =========================================================================
     # League Methods
     # =========================================================================
 
-    # TODO: Determine if this method is really needed
     async def get_summoner_leagues(
         self: Self,
         region: str,
@@ -173,7 +172,7 @@ class RiotAPIFacade:
         Returns:
             List of processed league entries (one per queue type).
         """
-        logger.debug(f"Getting leagues for PUUID: {puuid[:8]}... in region: {region}")
+        logger.debug("Getting leagues for PUUID: %s... in region: %s", puuid[:8], region)
 
         entries = await self._league_client.get_entries_by_puuid_with_region(puuid, region)
 
@@ -212,9 +211,11 @@ class RiotAPIFacade:
         Returns:
             List of full match data objects.
         """
-        logger.debug(f"Getting {count} recent matches for PUUID: {puuid[:8]}...")
+        logger.debug("Getting %s recent matches for PUUID: %s...", count, puuid[:8])
 
-        match_ids = await self._match_client.get_match_ids_by_puuid_with_region(puuid, region, count)
+        match_ids = await self._match_client.get_match_ids_by_puuid_with_region(
+            puuid, region, count
+        )
 
         # Get full match data for each matchId
         matches = []
@@ -222,8 +223,8 @@ class RiotAPIFacade:
             try:
                 match = await self._match_client.get_match_with_region(match_id, region)
                 matches.append(match)
-            except Exception as e:
-                logger.warning(f"Failed to fetch match {match_id}: {e}")
+            except Exception as exc:  # pylint: disable=broad-exception-caught
+                logger.warning("Failed to fetch match %s: %s", match_id, exc)
                 continue
 
         return matches

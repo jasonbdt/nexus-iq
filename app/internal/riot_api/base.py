@@ -13,7 +13,6 @@ import os
 import aiohttp
 from aiohttp import ClientRequest, ClientHandlerType, ClientResponse, ClientTimeout, ClientSession
 from aiohttp.client_exceptions import ContentTypeError
-from fastapi import HTTPException
 from pydantic import BaseModel
 
 from .config import RiotAPIConfig, RiotRegion, RiotPlatform
@@ -36,6 +35,7 @@ async def retry_middleware(
     req: ClientRequest,
     handler: ClientHandlerType
 ) -> ClientResponse:
+    """Retry failed HTTP requests up to 3 times before returning the last response."""
     for _ in range(3):
         response = await handler(req)
         if response.ok:
@@ -115,15 +115,15 @@ class RiotAPIBase(ABC):
             RiotAPIError: For other errors.
         """
         url = self._build_url(routing, path)
-        self._logger.debug(f"Requesting: {url}")
+        self._logger.debug("Requesting: %s", url)
 
         try:
             response = await self._session.get(url)
-        except aiohttp.client_exceptions.ConnectionTimeoutError:
-            self._logger.error(f"Request timed out: {url}")
+        except aiohttp.client_exceptions.ConnectionTimeoutError as exc:
+            self._logger.error("Request timed out: %s", url)
             raise RiotAPITimeoutError(
                 f"Request timed out after {self._config.timeout_seconds}s"
-            )
+            ) from exc
 
         return await self._handle_response(response, response_model)
 
@@ -148,23 +148,23 @@ class RiotAPIBase(ABC):
             Same exceptions as _request.
         """
         url = self._build_url(routing, path)
-        self._logger.debug(f"Requesting list: {url}")
+        self._logger.debug("Requesting list: %s", url)
 
         try:
             response = await self._session.get(url)
-        except aiohttp.client_exceptions.ConnectionTimeoutError:
+        except aiohttp.client_exceptions.ConnectionTimeoutError as exc:
             raise RiotAPITimeoutError(
                 f"Request timed out after {self._config.timeout_seconds}s"
-            )
+            ) from exc
 
         self._check_response_status(response)
 
         try:
             data = await response.json()
             return [item_model.model_validate(item) for item in data]
-        except (ContentTypeError, ValueError) as e:
-            self._logger.error(f"Failed to parse response: {e}")
-            raise RiotAPIError(f"Invalid response format: {e}")
+        except (ContentTypeError, ValueError) as exc:
+            self._logger.error("Failed to parse response: %s", exc)
+            raise RiotAPIError(f"Invalid response format: {exc}") from exc
 
     async def _request_raw_list(
         self: Self,
@@ -187,27 +187,27 @@ class RiotAPIBase(ABC):
             Same exceptions as _request.
         """
         url = self._build_url(routing, path)
-        self._logger.debug(f"Requesting raw list: {url}")
+        self._logger.debug("Requesting raw list: %s", url)
 
         try:
             response = await self._session.get(
                 url,
                 timeout=self._config.timeout_seconds
             )
-        except aiohttp.client_exceptions.ConnectionTimeoutError:
+        except aiohttp.client_exceptions.ConnectionTimeoutError as exc:
             raise RiotAPITimeoutError(
                 message=f"Request times out after {self._config.timeout_seconds}s"
-            )
-        except aiohttp.client_exceptions.ClientResponseError as e:
-            raise RiotAPIError(f"Request failed: {e}")
+            ) from exc
+        except aiohttp.client_exceptions.ClientResponseError as exc:
+            raise RiotAPIError(f"Request failed: {exc}") from exc
 
         self._check_response_status(response)
 
         try:
             return await response.json()
-        except (ContentTypeError, ValueError) as e:
-            self._logger.error(f"Failed to parse response: {e}")
-            raise RiotAPIError(f"Failed to parse response: {e}")
+        except (ContentTypeError, ValueError) as exc:
+            self._logger.error("Failed to parse response: %s", exc)
+            raise RiotAPIError(f"Failed to parse response: {exc}") from exc
 
 
     async def _handle_response(
@@ -230,9 +230,9 @@ class RiotAPIBase(ABC):
         try:
             data = await response.json()
             return response_model.model_validate(data)
-        except (ContentTypeError, ValueError) as e:
-            self._logger.error(f"Failed to parse response: {e}")
-            raise RiotAPIError(f"Invalid response format: {e}")
+        except (ContentTypeError, ValueError) as exc:
+            self._logger.error("Failed to parse response: %s", exc)
+            raise RiotAPIError(f"Invalid response format: {exc}") from exc
 
     def _check_response_status(
         self: Self,
@@ -255,7 +255,7 @@ class RiotAPIBase(ABC):
             return
 
         status = response.status
-        self._logger.warning(f"API returned status {status}")
+        self._logger.warning("API returned status %s", status)
 
         match status:
             case 401:
@@ -297,51 +297,3 @@ class RiotAPIBase(ABC):
         """Context manager exit - close session."""
         self.close()
         return False
-
-"""
-    async def _send_request(self: Self, path: str):
-        async with aiohttp.ClientSession() as session:
-            headers = {"X-Riot-Token": os.getenv("RIOT_API_KEY")}
-            request = session.get(
-                url=f"{self._get_api_base()}{path}",
-                headers=headers
-            )
-
-            async with request as response:
-                try:
-                    if response.ok:
-                        return await response.json()
-                except ContentTypeError:
-                    raise HTTPException(status_code=500, detail="Internal Error")
-
-                match response.status:
-                    case 400:
-                        self._logger.error(f"Bad Request to {path}")
-                        raise HTTPException(status_code=400, detail="Bad Request")
-                    case 401:
-                        self._logger.error(f"Unauthorized Request to {path}")
-                        raise HTTPException(status_code=401, detail="Unauthorized")
-                    case 403:
-                        self._logger.error(f"Forbidden Request to {path}")
-                        raise HTTPException(status_code=403, detail="Forbidden")
-                    case 404:
-                        self._logger.error(f"Data not found at {path}")
-                        raise HTTPException(status_code=404, detail="Not Found")
-                    case 429:
-                        self._logger.warning(f"Rate limit exceeded at request to {path}")
-                        raise HTTPException(status_code=429, detail="Rate limit exceeded")
-                    case _:
-                        raise HTTPException(status_code=500, detail="Internal Server Error")
-
-    def _get_platform_or_region(self: Self):
-        return self._platform_or_region
-
-    def _set_platform_or_region(self: Self, platform_or_region):
-        self._platform_or_region = platform_or_region
-
-    def _get_api_base(self: Self) -> str:
-        api_base = self._api_base.replace("!!PLATFORM_OR_REGION!!",
-                                          self._get_platform_or_region())
-
-        return api_base
-"""

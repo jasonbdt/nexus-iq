@@ -7,10 +7,9 @@ Uses regional routing (americas, europe, asia, sea).
 
 from typing import Optional, Self
 
-from .. import RiotAPINotFoundError
 from ..base import RiotAPIBase
 from ..config import RiotAPIConfig, RiotRegion
-from ..models import RiotAccount, RiotError, AccountRegion
+from ..models import RiotAccount, AccountRegion
 from ..exceptions import RiotAPIValidationError
 
 
@@ -170,4 +169,3 @@ class AccountClient(RiotAPIBase):
             raise RiotAPIValidationError(
                 "Invalid PUUID format (must be 78 characters)"
             )
-
