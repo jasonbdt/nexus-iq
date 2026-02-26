@@ -6,6 +6,11 @@ services:
     image: nexus-iq/backend
     ports:
       - 8000:8000
+    volumes:
+      - ./ddragon:/usr/src/ddragon:ro
+    environment:
+      DDragon_CACHE_DIR: /usr/src/ddragon/cdn
+
 
   database:
     image: postgres:18-alpine
