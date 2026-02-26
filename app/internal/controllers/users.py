@@ -5,11 +5,12 @@ from sqlmodel import select
 from ..db import SessionDep
 from ..models import (
     LinkedSummonerInfo,
+    Role,
     Summoner,
     User,
     UserResponse,
     UserRole,
-    UserRoleAssignment,
+    UserRoleLink,
     UserSummonerLink,
 )
 
@@ -65,25 +66,36 @@ def user_to_response(user: User, session: SessionDep) -> UserResponse:
 
 
 def get_user_role(user: User, session: SessionDep) -> UserRole:
-    """Get the current role for a user from the user_role_assignments table."""
-    assignment = session.exec(
-        select(UserRoleAssignment).where(UserRoleAssignment.user_id == user.id)
+    """Get the current role for a user from the user_roles table."""
+    link = session.exec(
+        select(UserRoleLink).where(UserRoleLink.user_id == user.id)
     ).first()
-    return assignment.role if assignment else UserRole.member
+    if not link:
+        return UserRole.member
+    role = session.get(Role, link.role_id)
+    if not role:
+        return UserRole.member
+    try:
+        return UserRole(role.name)
+    except ValueError:
+        return UserRole.member
 
 
-def get_or_create_role_assignment(user: User, session: SessionDep) -> UserRoleAssignment:
-    """Get or create the role assignment for a user. Returns the assignment with default role if none exists."""
-    assignment = session.exec(
-        select(UserRoleAssignment).where(UserRoleAssignment.user_id == user.id)
+def get_or_create_role_assignment(user: User, session: SessionDep) -> UserRoleLink:
+    """Get or create the role assignment for a user. Returns the user_roles link with default role if none exists."""
+    link = session.exec(
+        select(UserRoleLink).where(UserRoleLink.user_id == user.id)
     ).first()
-    if assignment:
-        return assignment
-    assignment = UserRoleAssignment(user_id=user.id, role=UserRole.member)
-    session.add(assignment)
+    if link:
+        return link
+    member_role = session.exec(select(Role).where(Role.name == UserRole.member.value)).first()
+    if not member_role:
+        raise RuntimeError("Default 'member' role not found in roles table")
+    link = UserRoleLink(user_id=user.id, role_id=member_role.id)
+    session.add(link)
     session.commit()
-    session.refresh(assignment)
-    return assignment
+    session.refresh(link)
+    return link
 
 
 def get_user_summoner_links(user: User, session: SessionDep) -> list[UserSummonerLink]:

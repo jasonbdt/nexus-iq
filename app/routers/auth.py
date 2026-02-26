@@ -17,7 +17,6 @@ from ..internal.logging import get_logger
 from ..internal.models import (
     User,
     UserResponse,
-    UserRoleAssignment,
     UserSignUpRequest,
     UserSummonerLink,
 )

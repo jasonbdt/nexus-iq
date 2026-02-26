@@ -43,13 +43,23 @@ class UserSummonerLink(SQLModel, table=True):
     __table_args__ = (UniqueConstraint("user_id", "link_slot", name="uq_user_summoner_link_slot"),)
 
 
-class UserRoleAssignment(SQLModel, table=True):
-    """Junction table (2NF) assigning roles to users."""
-    __tablename__ = "user_role_assignments"
+class Role(SQLModel, table=True):
+    """Table storing role definitions."""
+    __tablename__ = "roles"
+
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(unique=True, nullable=False, index=True, max_length=32)
+
+    user_links: list["UserRoleLink"] = Relationship(back_populates="role")
+
+
+class UserRoleLink(SQLModel, table=True):
+    """Junction table (2NF) linking users to roles."""
+    __tablename__ = "user_roles"
 
     id: int | None = Field(default=None, primary_key=True)
     user_id: int = Field(nullable=False, foreign_key="users.id", unique=True, index=True)
-    role: UserRole = Field(default=UserRole.member, nullable=False)
+    role_id: int = Field(nullable=False, foreign_key="roles.id", index=True)
     assigned_at: datetime = Field(
         default_factory=utc_now,
         sa_column=Column(
@@ -59,7 +69,8 @@ class UserRoleAssignment(SQLModel, table=True):
         ),
     )
 
-    user: Optional["User"] = Relationship(back_populates="role_assignment")
+    user: Optional["User"] = Relationship(back_populates="role_links")
+    role: Optional["Role"] = Relationship(back_populates="user_links")
 
 
 class User(SQLModel, table=True):
@@ -74,7 +85,7 @@ class User(SQLModel, table=True):
     subscription_tier: str = Field(default="free", max_length=32)  # free, premium, etc.
 
     summoner_links: list["UserSummonerLink"] = Relationship(back_populates="user")
-    role_assignment: Optional["UserRoleAssignment"] = Relationship(back_populates="user")
+    role_links: list["UserRoleLink"] = Relationship(back_populates="user")
 
     created_at: datetime = Field(
         default_factory=utc_now,
