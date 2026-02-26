@@ -1,0 +1,192 @@
+<app-navbar (openLogin)="openLogin()" (openRegister)="openRegister()" />
+
+<div class="dashboard-page">
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="page-header-inner">
+      <div class="header-left">
+        <h1 class="page-title">
+          Welcome back,
+          <span class="title-accent">{{ authService.currentUser()?.avatarName || 'Summoner' }}</span>
+        </h1>
+        <p class="page-subtitle">Here's your performance overview</p>
+      </div>
+      <div class="header-actions">
+        @if (authService.isAdministrator()) {
+          <button mat-stroked-button class="action-btn-outline" routerLink="/admin">
+            <mat-icon>admin_panel_settings</mat-icon>
+            Admin Panel
+          </button>
+        }
+        <button mat-flat-button class="action-btn-primary" routerLink="/coach">
+          <mat-icon>smart_toy</mat-icon>
+          Start Coaching Session
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dashboard Grid -->
+  <div class="dashboard-grid">
+
+    <!-- Rank Card -->
+    <div class="dash-card rank-card">
+      <div class="card-header">
+        <span class="card-label">Ranked Performance</span>
+        <span class="card-badge badge-gold">Solo/Duo</span>
+      </div>
+      @if (loadingSummoner()) {
+        <div class="rank-loading">
+          <mat-spinner diameter="32" />
+          <span>Loading rank data…</span>
+        </div>
+      } @else if (getSoloQueue(); as sq) {
+        <div class="rank-display">
+          <div class="rank-wings-stack">
+            @if (summoner()?.profile_icon != null) {
+              <img [src]="ddragon.profileIconUrl(summoner()!.profile_icon)"
+                   alt="" class="rank-profile-icon" />
+            }
+            <img [src]="ddragon.rankWingsUrl(sq.tier)"
+                 alt="{{ sq.tier }}" class="rank-wings-img"
+                 (error)="$any($event.target).classList.add('hidden')" />
+          </div>
+          <div class="rank-info">
+            <p class="rank-tier">{{ sq.tier }} {{ sq.rank }}</p>
+            <p class="rank-lp">{{ sq.league_points }} LP</p>
+          </div>
+        </div>
+        <div class="rank-stats">
+          <div class="stat-item">
+            <span class="stat-label">Win Rate</span>
+            <span class="stat-value text-green">{{ getWinRate(sq) }}%</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Games</span>
+            <span class="stat-value">{{ sq.total_games }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">W/L</span>
+            <span class="stat-value">{{ sq.wins }}W / {{ sq.losses }}L</span>
+          </div>
+        </div>
+      } @else {
+        <div class="rank-empty">
+          <p>No ranked data yet.</p>
+          <p class="rank-empty-hint">Link your League of Legends account in <a routerLink="/settings">Settings</a> to see your rank.</p>
+        </div>
+      }
+      @if (playerProfileLink(); as link) {
+        <a [routerLink]="link" mat-stroked-button class="card-action-btn">
+          View Profile
+          <mat-icon>arrow_forward</mat-icon>
+        </a>
+      }
+    </div>
+
+    <!-- AI Coach Sessions -->
+    <div class="dash-card sessions-card">
+      <div class="card-header">
+        <span class="card-label">Recent AI Sessions</span>
+        <button mat-button class="view-all-btn">View all</button>
+      </div>
+      <div class="sessions-list">
+        @for (session of recentSessions; track session.topic) {
+          <div class="session-item">
+            <div class="session-icon-wrap">
+              <mat-icon class="session-icon">{{ session.icon }}</mat-icon>
+            </div>
+            <div class="session-info">
+              <p class="session-topic">{{ session.topic }}</p>
+              <p class="session-duration">{{ session.duration }}</p>
+            </div>
+            <button mat-icon-button class="session-replay-btn">
+              <mat-icon>play_circle</mat-icon>
+            </button>
+          </div>
+        }
+      </div>
+      <button mat-flat-button class="start-session-btn" routerLink="/coach">
+        <mat-icon>smart_toy</mat-icon>
+        Start New Session
+      </button>
+    </div>
+
+    <!-- Training Plan -->
+    <div class="dash-card training-card">
+      <div class="card-header">
+        <span class="card-label">Weekly Training Plan</span>
+        <span class="card-badge badge-purple">0/3 done</span>
+      </div>
+      <div class="training-list">
+        @for (item of trainingPlan; track item.task; let i = $index) {
+          <div class="training-item" [class.done]="item.done">
+            <div class="training-check" [class.checked]="item.done">
+              @if (item.done) {
+                <mat-icon>check</mat-icon>
+              }
+            </div>
+            <div class="training-info">
+              <mat-icon class="training-icon">{{ item.icon }}</mat-icon>
+              <p class="training-task">{{ item.task }}</p>
+            </div>
+          </div>
+        }
+      </div>
+      <button mat-stroked-button class="edit-plan-btn">
+        <mat-icon>edit</mat-icon>
+        Edit Training Plan
+      </button>
+    </div>
+
+    <!-- Premium Status -->
+    <div class="dash-card premium-card">
+      <div class="premium-glow"></div>
+      <div class="card-header">
+        <span class="card-label">Premium Status</span>
+        <span class="card-badge badge-amber">Inactive</span>
+      </div>
+      <div class="premium-content">
+        <div class="premium-icon">⭐</div>
+        <h3 class="premium-title">Unlock Full AI Coaching</h3>
+        <p class="premium-desc">
+          Get unlimited AI coaching sessions, advanced analytics, VOD reviews, and priority support.
+        </p>
+        <ul class="premium-features">
+          <li><mat-icon>check_circle</mat-icon> Unlimited AI coaching sessions</li>
+          <li><mat-icon>check_circle</mat-icon> Advanced performance analytics</li>
+          <li><mat-icon>check_circle</mat-icon> Patch notes AI assistant</li>
+          <li><mat-icon>check_circle</mat-icon> Priority support</li>
+        </ul>
+      </div>
+      <button mat-flat-button class="premium-btn">
+        <mat-icon>star</mat-icon>
+        Upgrade to Premium
+      </button>
+    </div>
+
+    <!-- Ranking History -->
+    <div class="dash-card history-card">
+      <div class="card-header">
+        <span class="card-label">Ranking History</span>
+        <span class="card-badge badge-blue">Last 8 Seasons</span>
+      </div>
+      <div class="history-chart-placeholder">
+        <div class="chart-bars">
+          @for (h of [40, 55, 48, 62, 70, 58, 75, 80]; track $index) {
+            <div class="chart-bar" [style.height.%]="h">
+              <div class="bar-fill"></div>
+            </div>
+          }
+        </div>
+        <div class="chart-labels">
+          <span>S7</span><span>S8</span><span>S9</span><span>S10</span>
+          <span>S11</span><span>S12</span><span>S13</span><span>S14</span>
+        </div>
+      </div>
+      <p class="history-peak">Peak: <strong>Platinum IV</strong> in Season 14</p>
+    </div>
+
+  </div>
+
+</div>

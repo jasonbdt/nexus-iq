@@ -1,0 +1,363 @@
+<app-navbar (openLogin)="openLogin()" (openRegister)="openRegister()" />
+
+<!-- Maintenance Banner -->
+@if (maintenanceMode()) {
+  <div class="maintenance-banner">
+    <mat-icon>warning</mat-icon>
+    Maintenance mode is currently <strong>ON</strong>. End users will see a maintenance notice.
+  </div>
+}
+
+<div class="admin-page">
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="header-left">
+      <div class="admin-badge">
+        <mat-icon>admin_panel_settings</mat-icon>
+        Admin
+      </div>
+      <h1 class="page-title">Administration Panel</h1>
+      <p class="page-subtitle">Manage users, monitor the platform, and configure system settings</p>
+    </div>
+    <div class="header-actions">
+      <button mat-stroked-button class="action-btn-outline">
+        <mat-icon>description</mat-icon>
+        View System Logs
+      </button>
+      <button mat-stroked-button class="action-btn-outline">
+        <mat-icon>download</mat-icon>
+        Download Backup
+      </button>
+    </div>
+  </div>
+
+  <!-- Stats Row -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-icon-wrap blue">
+        <mat-icon>people</mat-icon>
+      </div>
+      <div>
+        <p class="stat-value">{{ users().length }}</p>
+        <p class="stat-label">Total Users</p>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon-wrap green">
+        <mat-icon>check_circle</mat-icon>
+      </div>
+      <div>
+        <p class="stat-value">{{ activeUsersCount() }}</p>
+        <p class="stat-label">Active Users</p>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon-wrap amber">
+        <mat-icon>support_agent</mat-icon>
+      </div>
+      <div>
+        <p class="stat-value">{{ recentTickets.length }}</p>
+        <p class="stat-label">Open Tickets</p>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon-wrap purple">
+        <mat-icon>smart_toy</mat-icon>
+      </div>
+      <div>
+        <p class="stat-value">{{ recentAiSessions.length }}</p>
+        <p class="stat-label">AI Sessions Today</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin Grid -->
+  <div class="admin-grid">
+
+    <!-- User Management -->
+    <div class="admin-card user-card">
+      <div class="card-header">
+        <div class="card-title-group">
+          <mat-icon class="card-icon blue-icon">manage_accounts</mat-icon>
+          <h2 class="card-title">User Management</h2>
+        </div>
+        <button mat-icon-button (click)="loadUsers()">
+          <mat-icon>refresh</mat-icon>
+        </button>
+      </div>
+
+      @if (loadingUsers()) {
+        <div class="card-loading">
+          <mat-spinner diameter="32" />
+        </div>
+      } @else {
+        <div class="user-table">
+          <div class="table-header">
+            <span>User</span>
+            <span>Status</span>
+            <span>Joined</span>
+            <span>Actions</span>
+          </div>
+          @for (user of users().slice(0, 8); track user.emailAddress) {
+            <div class="table-row">
+              <div class="user-cell">
+                <div class="user-avatar-sm">{{ user.avatarName.charAt(0).toUpperCase() }}</div>
+                <div>
+                  <p class="user-name">{{ user.avatarName }}</p>
+                  <p class="user-email">{{ user.emailAddress }}</p>
+                </div>
+              </div>
+              <span class="status-badge" [class.active]="user.is_active" [class.inactive]="!user.is_active">
+                {{ user.is_active ? 'Active' : 'Inactive' }}
+              </span>
+              <span class="user-date">{{ user.created_at | date: 'MMM d, y' }}</span>
+              <div class="user-actions">
+                <button mat-icon-button class="action-icon-btn" title="Reset password">
+                  <mat-icon>lock_reset</mat-icon>
+                </button>
+                <button mat-icon-button class="action-icon-btn danger" title="Delete user" (click)="deleteUser(user.emailAddress)">
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </div>
+            </div>
+          }
+        </div>
+        @if (users().length > 8) {
+          <p class="show-more">+{{ users().length - 8 }} more users</p>
+        }
+      }
+    </div>
+
+    <!-- Tickets -->
+    <div class="admin-card">
+      <div class="card-header">
+        <div class="card-title-group">
+          <mat-icon class="card-icon amber-icon">support_agent</mat-icon>
+          <h2 class="card-title">Support Tickets</h2>
+        </div>
+        <span class="card-count">{{ recentTickets.length }}</span>
+      </div>
+      <div class="tickets-list">
+        @for (ticket of recentTickets; track ticket.id) {
+          <div class="ticket-row">
+            <div class="ticket-info">
+              <p class="ticket-id">{{ ticket.id }}</p>
+              <p class="ticket-subject">{{ ticket.subject }}</p>
+              <p class="ticket-user">by {{ ticket.user }} · {{ ticket.time }}</p>
+            </div>
+            <span class="ticket-status" [ngClass]="getTicketStatusClass(ticket.status)">
+              {{ ticket.status.replace('_', ' ') }}
+            </span>
+          </div>
+        }
+      </div>
+      <button mat-stroked-button class="card-action-btn">
+        Open Tickets
+        <mat-icon>arrow_forward</mat-icon>
+      </button>
+    </div>
+
+    <!-- AI Sessions -->
+    <div class="admin-card">
+      <div class="card-header">
+        <div class="card-title-group">
+          <mat-icon class="card-icon purple-icon">psychology</mat-icon>
+          <h2 class="card-title">AI Coaching Sessions</h2>
+        </div>
+      </div>
+      <div class="sessions-list">
+        @for (session of recentAiSessions; track session.user) {
+          <div class="session-row">
+            <div class="session-avatar">{{ session.user.charAt(0).toUpperCase() }}</div>
+            <div class="session-info">
+              <p class="session-user">{{ session.user }}</p>
+              <p class="session-topic">{{ session.topic }}</p>
+              <p class="session-time">{{ session.timestamp | date: 'MMM d, HH:mm' }}</p>
+            </div>
+            @if (session.flagged) {
+              <span class="flagged-badge">
+                <mat-icon>flag</mat-icon>
+                Flagged
+              </span>
+            }
+          </div>
+        }
+      </div>
+      <button mat-stroked-button class="card-action-btn">
+        Open Session History
+        <mat-icon>arrow_forward</mat-icon>
+      </button>
+    </div>
+
+    <!-- RAG Training -->
+    <div class="admin-card rag-card">
+      <div class="card-header">
+        <div class="card-title-group">
+          <mat-icon class="card-icon cyan-icon">model_training</mat-icon>
+          <h2 class="card-title">RAG Knowledge Base</h2>
+        </div>
+        <span class="card-badge-cyan">AI Training</span>
+      </div>
+
+      <p class="rag-description">
+        Ingest League of Legends patch notes into the AI knowledge base. The system scrapes the official patch page, chunks the content, generates embeddings, and stores them in the vector database.
+      </p>
+
+      <!-- Quick-select patch buttons -->
+      <div class="patch-quick-select">
+        <div class="quick-select-header">
+          <p class="quick-select-label">Available patches</p>
+          <button
+            mat-icon-button
+            class="refresh-patches-btn"
+            (click)="loadPatches()"
+            [disabled]="loadingPatches() || ingestLoading()"
+            matTooltip="Refresh patch list from leagueoflegends.com"
+          >
+            <mat-icon>refresh</mat-icon>
+          </button>
+        </div>
+        @if (loadingPatches()) {
+          <div class="patches-loading">
+            <mat-spinner diameter="20" />
+            <span>Loading patches…</span>
+          </div>
+        } @else if (availablePatches().length === 0) {
+          <p class="patches-empty">Could not load patch list. Enter a version manually below.</p>
+        } @else {
+          <div class="patch-chips">
+            @for (patch of availablePatches(); track patch.version) {
+              <button
+                class="patch-chip"
+                [class.selected]="parsedVersions().includes(patch.version)"
+                (click)="selectPatch(patch.version)"
+                [disabled]="ingestLoading()"
+                [matTooltip]="patch.url"
+              >
+                {{ patch.version }}
+              </button>
+            }
+          </div>
+        }
+      </div>
+
+      <!-- Manual input + ingest button -->
+      <div class="ingest-input-row">
+        <mat-form-field appearance="outline" class="patch-input-field">
+          <mat-label>Patch Version(s)</mat-label>
+          <input
+            matInput
+            type="text"
+            placeholder="e.g. 26.4 or 26.3, 26.4, 25.20"
+            [ngModel]="patchInput()"
+            (ngModelChange)="patchInput.set($event)"
+            [disabled]="ingestLoading()"
+          />
+          <mat-icon matSuffix>tag</mat-icon>
+          <mat-hint>Single patch or comma-separated list (e.g. 26.3, 26.4)</mat-hint>
+        </mat-form-field>
+
+        <button
+          mat-flat-button
+          class="ingest-btn"
+          (click)="ingestPatch()"
+          [disabled]="!isPatchVersionValid() || ingestLoading()"
+          matTooltip="Scrape and embed patch notes into the vector database"
+        >
+          @if (ingestLoading()) {
+            <ng-container>
+              <mat-spinner diameter="18" class="btn-spinner" />
+              Ingesting…
+            </ng-container>
+          } @else {
+            <ng-container>
+              <mat-icon>cloud_upload</mat-icon>
+              Ingest {{ parsedVersions().length > 1 ? parsedVersions().length + ' Patches' : 'Patch' }}
+            </ng-container>
+          }
+        </button>
+      </div>
+
+      <!-- Ingest log -->
+      @if (ingestLog().length > 0) {
+        <div class="ingest-log-header">
+          <p class="ingest-log-title">Ingestion Log</p>
+          <button mat-button class="clear-log-btn" (click)="clearIngestLog()">
+            <mat-icon>delete_sweep</mat-icon>
+            Clear
+          </button>
+        </div>
+        <div class="ingest-log">
+          @for (entry of ingestLog(); track entry.timestamp) {
+            <div class="log-entry" [class.log-success]="entry.status === 'success'" [class.log-error]="entry.status === 'error'" [class.log-loading]="entry.status === 'loading'">
+              <div class="log-icon">
+                @if (entry.status === 'loading') {
+                  <mat-spinner diameter="16" />
+                } @else if (entry.status === 'success') {
+                  <mat-icon class="log-status-icon success">check_circle</mat-icon>
+                } @else {
+                  <mat-icon class="log-status-icon error">error</mat-icon>
+                }
+              </div>
+              <div class="log-body">
+                <div class="log-top-row">
+                  <span class="log-patch">v{{ entry.patchVersion }}</span>
+                  @if (entry.chunkCount !== undefined) {
+                    <span class="log-chunks">{{ entry.chunkCount }} chunks</span>
+                  }
+                  <span class="log-time">{{ entry.timestamp | date: 'HH:mm:ss' }}</span>
+                </div>
+                <p class="log-message">{{ entry.message }}</p>
+              </div>
+            </div>
+          }
+        </div>
+      } @else {
+        <div class="ingest-empty">
+          <mat-icon>inbox</mat-icon>
+          <p>No ingestion runs yet. Select a patch version above to start training.</p>
+        </div>
+      }
+    </div>
+
+    <!-- Maintenance Mode -->
+    <div class="admin-card maintenance-card" [class.maintenance-on]="maintenanceMode()">
+      <div class="card-header">
+        <div class="card-title-group">
+          <mat-icon class="card-icon" [class.red-icon]="maintenanceMode()" [class.green-icon]="!maintenanceMode()">
+            {{ maintenanceMode() ? 'construction' : 'check_circle' }}
+          </mat-icon>
+          <h2 class="card-title">Maintenance Mode</h2>
+        </div>
+        <span class="maintenance-status" [class.on]="maintenanceMode()" [class.off]="!maintenanceMode()">
+          {{ maintenanceMode() ? 'ON' : 'OFF' }}
+        </span>
+      </div>
+
+      <div class="maintenance-preview">
+        <div class="preview-box">
+          <mat-icon class="preview-icon">{{ maintenanceMode() ? 'construction' : 'check_circle' }}</mat-icon>
+          <p class="preview-title">{{ maintenanceMode() ? 'Under Maintenance' : 'Platform Online' }}</p>
+          <p class="preview-desc">
+            {{ maintenanceMode()
+              ? 'NexusIQ is currently undergoing maintenance. We\'ll be back shortly.'
+              : 'All systems are operational. Users can access the platform normally.'
+            }}
+          </p>
+        </div>
+      </div>
+
+      <button
+        mat-flat-button
+        class="maintenance-toggle-btn"
+        [class.enable]="!maintenanceMode()"
+        [class.disable]="maintenanceMode()"
+        (click)="toggleMaintenance()"
+      >
+        <mat-icon>{{ maintenanceMode() ? 'power_settings_new' : 'construction' }}</mat-icon>
+        {{ maintenanceMode() ? 'Disable Maintenance' : 'Enable Maintenance' }}
+      </button>
+    </div>
+
+  </div>
+</div>

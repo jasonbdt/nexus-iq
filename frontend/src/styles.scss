@@ -1,0 +1,154 @@
+@use '@angular/material' as mat;
+@use 'tailwindcss';
+
+// ─── Custom NexusIQ Design Tokens ───────────────────────────────────────────
+@theme {
+  --color-navy-950: #050b18;
+  --color-navy-900: #0a1628;
+  --color-navy-800: #0f2040;
+  --color-navy-700: #162d58;
+  --color-navy-600: #1e3a70;
+  --color-gold-400: #f0b429;
+  --color-gold-500: #d4930a;
+  --color-gold-300: #f7cc6a;
+  --color-accent-cyan: #00d4ff;
+  --color-accent-purple: #7c3aed;
+  --color-surface: #0f1923;
+  --color-surface-elevated: #162032;
+  --color-border: rgba(255, 255, 255, 0.08);
+}
+
+// ─── Angular Material Dark Theme ────────────────────────────────────────────
+$nexusiq-primary: mat.define-theme(
+  (
+    color: (
+      theme-type: dark,
+      primary: mat.$azure-palette,
+      tertiary: mat.$orange-palette,
+    ),
+    typography: (
+      brand-family: 'Inter, sans-serif',
+      plain-family: 'Inter, sans-serif',
+    ),
+    density: (
+      scale: 0,
+    ),
+  )
+);
+
+html {
+  @include mat.all-component-themes($nexusiq-primary);
+  @include mat.all-component-typographies($nexusiq-primary);
+}
+
+// ─── Global Base Styles ─────────────────────────────────────────────────────
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+  background-color: #050b18;
+  color: #e2e8f0;
+}
+
+// ─── Material Overrides for Dark Gaming Theme ────────────────────────────────
+.mat-mdc-dialog-container {
+  --mdc-dialog-container-color: #0f1923;
+}
+
+.mat-mdc-card {
+  --mdc-elevated-card-container-color: #162032;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.mat-mdc-tab-group {
+  --mdc-tab-indicator-active-indicator-color: #f0b429;
+  --mat-tab-header-active-label-text-color: #f0b429;
+  --mat-tab-header-active-ripple-color: #f0b429;
+  --mat-tab-header-inactive-label-text-color: rgba(255, 255, 255, 0.6);
+}
+
+.mat-mdc-snack-bar-container {
+  --mdc-snackbar-container-color: #162032;
+  --mdc-snackbar-supporting-text-color: #e2e8f0;
+}
+
+// ─── Scrollbar Styling ───────────────────────────────────────────────────────
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a1628;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1e3a70;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #f0b429;
+}
+
+// ─── Dialog Styles ───────────────────────────────────────────────────────────
+.nexus-dialog .mat-mdc-dialog-container {
+  --mdc-dialog-container-color: #0f1923;
+  border-radius: 16px !important;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
+}
+
+.nexus-backdrop {
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+}
+
+// ─── Utility Classes ─────────────────────────────────────────────────────────
+.nexus-card {
+  background: #162032;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 1.5rem;
+  transition: border-color 0.2s ease;
+
+  &:hover {
+    border-color: rgba(240, 180, 41, 0.3);
+  }
+}
+
+.nexus-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.gold-gradient {
+  background: linear-gradient(135deg, #f0b429 0%, #d4930a 100%);
+}
+
+.text-gold {
+  color: #f0b429;
+}
+
+.win-badge {
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.loss-badge {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}

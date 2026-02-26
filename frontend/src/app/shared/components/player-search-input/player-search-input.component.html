@@ -1,0 +1,17 @@
+<div class="search-input-group" [formGroup]="formGroup">
+  <input
+    class="search-input name-input"
+    type="text"
+    formControlName="gameName"
+    [placeholder]="namePlaceholder"
+    (input)="onNameInput($event)"
+  />
+  <span class="search-separator">#</span>
+  <input
+    #tagInput
+    class="search-input tag-input"
+    type="text"
+    formControlName="tagLine"
+    [placeholder]="tagPlaceholder"
+  />
+</div>

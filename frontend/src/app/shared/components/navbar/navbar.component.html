@@ -1,0 +1,69 @@
+<nav class="navbar">
+  <div class="navbar-inner">
+    <!-- Logo -->
+    <a routerLink="/" class="navbar-logo">
+      <span class="logo-icon">⚡</span>
+      <span class="logo-text">NexusIQ</span>
+    </a>
+
+    <!-- Nav Links -->
+    <div class="navbar-links">
+      <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }" class="nav-link">
+        Home
+      </a>
+      @if (authService.isLoggedIn()) {
+        <a routerLink="/dashboard" routerLinkActive="active" class="nav-link">Dashboard</a>
+        <a routerLink="/coach" routerLinkActive="active" class="nav-link nav-link-coach">
+          <mat-icon class="nav-link-icon">psychology</mat-icon>
+          AI Coach
+        </a>
+      }
+    </div>
+
+    <!-- Actions -->
+    <div class="navbar-actions">
+      @if (authService.isLoggedIn()) {
+        <button mat-icon-button [matMenuTriggerFor]="userMenu" class="avatar-btn">
+          <div class="avatar">
+            {{ authService.currentUser()?.avatarName?.charAt(0)?.toUpperCase() || 'U' }}
+          </div>
+        </button>
+        <mat-menu #userMenu="matMenu" class="user-menu">
+          <div class="menu-header">
+            <p class="menu-name">{{ authService.currentUser()?.avatarName }}</p>
+            <p class="menu-email">{{ authService.currentUser()?.emailAddress }}</p>
+          </div>
+          <mat-divider />
+          <button mat-menu-item routerLink="/dashboard">
+            <mat-icon>dashboard</mat-icon>
+            Dashboard
+          </button>
+          <button mat-menu-item routerLink="/coach">
+            <mat-icon>psychology</mat-icon>
+            AI Coach
+          </button>
+          @if (authService.isAdministrator()) {
+            <button mat-menu-item routerLink="/admin">
+              <mat-icon>admin_panel_settings</mat-icon>
+              Admin Panel
+            </button>
+          }
+          <button mat-menu-item routerLink="/settings">
+            <mat-icon>settings</mat-icon>
+            Settings
+          </button>
+          <mat-divider />
+          <button mat-menu-item (click)="logout()">
+            <mat-icon>logout</mat-icon>
+            Log out
+          </button>
+        </mat-menu>
+      } @else {
+        <button mat-button class="login-btn" (click)="openLogin.emit()">Login</button>
+        <button mat-flat-button class="register-btn" (click)="openRegister.emit()">
+          Create Account
+        </button>
+      }
+    </div>
+  </div>
+</nav>
