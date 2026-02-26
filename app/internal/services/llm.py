@@ -34,32 +34,99 @@ STYLE
 - Never mention internal policies, system messages, or tool usage."""
 
 
-def generate_response(question: str, context: str | None) -> str:
-    """Generate a response using GPT-5.2-mini with retrieved context."""
+ConversationHistory = list[dict[str, str]]  # [{"role": "user"|"assistant", "content": "..."}]
+
+
+def _build_input(question: str, context: str | None, history: ConversationHistory) -> str:
+    """Assemble the full input string: RAG context + prior turns + current question."""
+    parts: list[str] = []
+    if context:
+        parts.append(f"Context:\n{context}")
+    if history:
+        turns = "\n".join(
+            f"{'User' if m['role'] == 'user' else 'Assistant'}: {m['content']}"
+            for m in history
+        )
+        parts.append(f"Conversation so far:\n{turns}")
+    parts.append(f"User: {question}")
+    return "\n\n".join(parts)
+
+
+def generate_response(
+    question: str,
+    context: str | None,
+    history: ConversationHistory | None = None,
+) -> str:
+    """Generate a response using GPT-5-mini with retrieved context."""
     response = client.responses.create(
         model="gpt-5-mini",
         instructions=SYSTEM_PROMPT,
-        input=f"Context:\n{context}\n\nQuestion: {question}"
+        input=_build_input(question, context, history or []),
     )
-
     return response.output_text
+
+
+def stream_response(
+    question: str,
+    context: str | None,
+    history: ConversationHistory | None = None,
+):
+    """Yield raw text delta strings from a streaming GPT-5-mini response."""
+    with client.responses.stream(
+        model="gpt-5-mini",
+        instructions=SYSTEM_PROMPT,
+        input=_build_input(question, context, history or []),
+    ) as stream:
+        for event in stream:
+            # The Responses API emits response.output_text.delta events
+            if event.type == "response.output_text.delta":
+                yield event.delta
 
 
 class DeterminedPatchVersions(BaseModel):
     lte: float | str
     gte: float | str
 
-def determine_patch_versions(question: str):
-    """Determine the patch versions the user want to know"""
+
+def determine_patch_versions(question: str) -> DeterminedPatchVersions:
+    """Determine the patch versions the user want to know."""
     response = client.responses.parse(
         model="gpt-5-mini",
-        instructions=f"""You are an text analyzer with the task to figure out
-        the specific range of league of legends patch versions, that the user
-        asked for. The user may ask what updates Vayne has undergone since
-        Patch 25.20. The lowest version is then 25.20. If the user does not
-        specify a maximum version, use 26.3.""",
+        instructions=(
+            "You are a text analyser. Extract the League of Legends patch version range "
+            "the user is asking about. Return gte (lowest version, as a float) and lte (highest version, as a float). "
+            "ALWAYS return numeric floats. "
+            "If the user does not specify a minimum version, use 0.0. "
+            "If the user does not specify a maximum version, use 26.4. "
+            "Never return strings like 'unspecified' — always use a numeric default."
+        ),
         input=question,
         text_format=DeterminedPatchVersions,
     )
-
     return response.output_parsed
+
+
+class ExtractedKeywords(BaseModel):
+    keywords: list[str]
+
+
+def extract_keywords(question: str) -> list[str]:
+    """Extract specific named entities (champions, items, runes) from the question.
+
+    Returns a list of proper-noun keywords that should appear verbatim in the
+    relevant patch-note chunks.  Returns an empty list when the question is
+    general (e.g. "what changed this patch?").
+    """
+    response = client.responses.parse(
+        model="gpt-5-mini",
+        instructions=(
+            "You are a League of Legends expert. "
+            "Extract every champion name, item name, or rune name explicitly mentioned "
+            "in the user's question. Return them exactly as they appear in patch notes "
+            "(e.g. 'Malphite', 'Trinity Force', 'Conqueror'). "
+            "If the question is general and mentions no specific entity, return an empty list."
+        ),
+        input=question,
+        text_format=ExtractedKeywords,
+    )
+    return response.output_parsed.keywords if response.output_parsed else []
