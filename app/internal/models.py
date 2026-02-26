@@ -1,13 +1,65 @@
 from typing import Optional, Self, Any
 from datetime import datetime, timezone
+from enum import Enum
 
-from sqlalchemy import DateTime, func, JSON
+from sqlalchemy import DateTime, UniqueConstraint, func, JSON
 from sqlmodel import Column, Field, Relationship, SQLModel
 from pydantic import BaseModel, computed_field
 
 
 def utc_now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+class UserRole(str, Enum):
+    administrator = "administrator"
+    moderator = "moderator"
+    paid_member = "paid_member"
+    member = "member"
+
+
+class UserSummonerLink(SQLModel, table=True):
+    """Junction table (2NF) linking users to their League of Legends summoner accounts.
+    link_slot: 0 = primary (required at registration), 1–2 = additional (Premium only).
+    """
+    __tablename__ = "user_summoner_links"
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(nullable=False, foreign_key="users.id", index=True)
+    link_slot: int = Field(nullable=False, index=True)  # 0=primary, 1–2=additional
+    summoner_puuid: str = Field(nullable=False, foreign_key="summoners.puuid")
+    linked_at: datetime = Field(
+        default_factory=utc_now,
+        sa_column=Column(
+            DateTime(timezone=True),
+            server_default=func.now(),
+            nullable=False,
+        ),
+    )
+
+    user: Optional["User"] = Relationship(back_populates="summoner_links")
+    summoner: Optional["Summoner"] = Relationship(back_populates="user_links")
+
+    __table_args__ = (UniqueConstraint("user_id", "link_slot", name="uq_user_summoner_link_slot"),)
+
+
+class UserRoleAssignment(SQLModel, table=True):
+    """Junction table (2NF) assigning roles to users."""
+    __tablename__ = "user_role_assignments"
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(nullable=False, foreign_key="users.id", unique=True, index=True)
+    role: UserRole = Field(default=UserRole.member, nullable=False)
+    assigned_at: datetime = Field(
+        default_factory=utc_now,
+        sa_column=Column(
+            DateTime(timezone=True),
+            server_default=func.now(),
+            nullable=False,
+        ),
+    )
+
+    user: Optional["User"] = Relationship(back_populates="role_assignment")
 
 
 class User(SQLModel, table=True):
@@ -18,6 +70,11 @@ class User(SQLModel, table=True):
     emailAddress: str = Field(unique=True, nullable=False)
     password: str = Field(nullable=False)
     is_active: bool = Field(default=False)
+    language: str = Field(default="en", max_length=10)
+    subscription_tier: str = Field(default="free", max_length=32)  # free, premium, etc.
+
+    summoner_links: list["UserSummonerLink"] = Relationship(back_populates="user")
+    role_assignment: Optional["UserRoleAssignment"] = Relationship(back_populates="user")
 
     created_at: datetime = Field(
         default_factory=utc_now,
@@ -75,6 +132,7 @@ class Summoner(SQLModel, table=True):
 
     leagues: list["SummonerLeagues"] = Relationship(back_populates="summoner")
     stats: list["MatchParticipant"] = Relationship(back_populates="profile")
+    user_links: list["UserSummonerLink"] = Relationship(back_populates="summoner")
 
     @computed_field
     @property
@@ -381,15 +439,104 @@ class SummonerSearch(BaseModel):
 
 
 class UserSignUpRequest(BaseModel):
-    avatarName: str
+    avatarName: str = ""
     emailAddress: str
     password: str
     password_confirm: str
+    # Required: link primary player account during registration
+    gameName: str = ""
+    tagLine: str = ""
+
+
+class LinkedSummonerInfo(BaseModel):
+    puuid: str
+    riot_id: str
+    profile_icon: int
+    region: str
+    summoner_level: int
+    link_slot: int = 0  # 0=primary, 1-2=additional
+    link_id: int | None = None  # for DELETE additional
+    linked_at: Optional[datetime] = None
 
 
 class UserResponse(BaseModel):
     avatarName: str
     emailAddress: str
     is_active: bool
+    role: UserRole
     created_at: datetime
     updated_at: Optional[datetime]
+    linked_summoner: Optional[LinkedSummonerInfo] = None
+    summoner_linked_at: Optional[datetime] = None
+    additional_summoners: list[LinkedSummonerInfo] = []  # Premium: slots 1-2
+    language: str = "en"
+    subscription_tier: str = "free"
+
+
+class UserUpdateRequest(BaseModel):
+    emailAddress: str | None = None
+    current_password: str | None = None
+    new_password: str | None = None
+    language: str | None = None
+
+
+class LinkSummonerRequest(BaseModel):
+    gameName: str
+    tagLine: str
+    link_slot: int = 0  # 0=primary, 1-2=additional (Premium only)
+
+
+# ── Coach / Chat ──────────────────────────────────────────────────────────────
+
+class CoachSession(SQLModel, table=True):
+    __tablename__ = "coach_sessions"
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(nullable=False, foreign_key="users.id", index=True)
+    title: str = Field(nullable=False, default="New Session", max_length=200)
+
+    created_at: datetime = Field(
+        default_factory=utc_now,
+        sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),
+    )
+    updated_at: datetime = Field(
+        default_factory=utc_now,
+        sa_column=Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now()),
+    )
+
+    messages: list["CoachMessage"] = Relationship(back_populates="session")
+
+
+class CoachMessage(SQLModel, table=True):
+    __tablename__ = "coach_messages"
+
+    id: int | None = Field(default=None, primary_key=True)
+    session_id: int = Field(nullable=False, foreign_key="coach_sessions.id", index=True)
+    role: str = Field(nullable=False)          # "user" | "assistant"
+    content: str = Field(nullable=False)
+
+    created_at: datetime = Field(
+        default_factory=utc_now,
+        sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),
+    )
+
+    session: CoachSession | None = Relationship(back_populates="messages")
+
+
+class CoachMessageRead(BaseModel):
+    id: int
+    role: str
+    content: str
+    created_at: datetime
+
+
+class CoachSessionRead(BaseModel):
+    id: int
+    title: str
+    created_at: datetime
+    updated_at: datetime
+    messages: list[CoachMessageRead] = []
+
+
+class CoachSessionCreate(BaseModel):
+    title: str = "New Session"
