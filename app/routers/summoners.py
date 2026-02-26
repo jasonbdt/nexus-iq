@@ -1,7 +1,6 @@
-from typing import Annotated, Any, Optional
-from datetime import datetime, timedelta, timezone
+from typing import Annotated, Optional
 
-from fastapi import Response, status
+from fastapi import status
 from fastapi.params import Depends
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRouter
@@ -10,7 +9,7 @@ from sqlmodel import select, or_
 
 from .matches import process_match
 from ..dependencies import SUMMONER_TTL_MINUTES
-from ..internal.auth import get_current_active_user
+from ..internal.auth import get_current_active_user, get_current_user_optional
 from ..internal.controllers import summoners as SummonersController
 from ..internal.logging import get_logger
 from ..internal.db import SessionDep
@@ -34,14 +33,17 @@ logger = get_logger(__name__)
 
 @router.get("/search/{tag_line}/{game_name}", response_model=SummonerSearch)
 async def get_summoner(
-    current_user: Annotated[User, Depends(get_current_active_user)],
+    current_user: Annotated[Optional[User], Depends(get_current_user_optional)],
     tag_line: str,
     game_name: str,
     session: SessionDep,
     riot_api: RiotAPIDep
 ):
-    logger.info(
-        f"User[{current_user.id}] searching for Summoner \"{game_name}#{tag_line}\"")
+    if current_user:
+        logger.info(
+            f"User[{current_user.id}] searching for Summoner \"{game_name}#{tag_line}\"")
+    else:
+        logger.info(f"Anonymous user searching for Summoner \"{game_name}#{tag_line}\"")
 
     summoner = await SummonersController.find_or_create(
         game_name, tag_line, session, riot_api
