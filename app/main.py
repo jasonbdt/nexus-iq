@@ -14,7 +14,7 @@ from .internal.logging import configure_logging
 from .dependencies import APP_ENV
 from .internal.services.vector_store import ensure_collection
 from .internal.session import init_session, close_session
-from .routers import auth, matches, rag, summoners, users
+from .routers import auth, coach, matches, rag, summoners, users
 
 
 @asynccontextmanager
@@ -45,6 +45,7 @@ app = FastAPI(
 app.include_router(auth.router)
 app.include_router(summoners.router)
 app.include_router(rag.router)
+app.include_router(coach.router)
 app.include_router(matches.router)
 app.include_router(users.router)
 
