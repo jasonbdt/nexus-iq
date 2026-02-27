@@ -3,7 +3,7 @@
 from datetime import datetime, timezone, timedelta
 from sqlmodel import select
 
-from ..dependencies import SUMMONER_TTL_MINUTES
+from ...dependencies import SUMMONER_TTL_MINUTES
 from ..db import SessionDep
 from ..logging import get_logger
 from ..models import Summoner, SummonerLeagues, Match, MatchTeam, MatchTeamBans, MatchParticipant, \
