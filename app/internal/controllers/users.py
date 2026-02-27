@@ -1,3 +1,5 @@
+"""Controller for user lookup, role management, and summoner link operations."""
+
 from typing import Optional
 
 from sqlmodel import select
@@ -17,7 +19,9 @@ from ..models import (
 MAX_ADDITIONAL_LINKS = 2  # Premium users can add up to 2 extra accounts
 
 
-def _summoner_link_to_info(session: SessionDep, link: UserSummonerLink) -> LinkedSummonerInfo | None:
+def _summoner_link_to_info(
+    session: SessionDep, link: UserSummonerLink
+) -> LinkedSummonerInfo | None:
     summoner = session.exec(
         select(Summoner).where(Summoner.puuid == link.summoner_puuid)
     ).first()
@@ -82,7 +86,7 @@ def get_user_role(user: User, session: SessionDep) -> UserRole:
 
 
 def get_or_create_role_assignment(user: User, session: SessionDep) -> UserRoleLink:
-    """Get or create the role assignment for a user. Returns the user_roles link with default role if none exists."""
+    """Get or create the role assignment for a user, defaulting to the member role."""
     link = session.exec(
         select(UserRoleLink).where(UserRoleLink.user_id == user.id)
     ).first()
@@ -101,12 +105,16 @@ def get_or_create_role_assignment(user: User, session: SessionDep) -> UserRoleLi
 def get_user_summoner_links(user: User, session: SessionDep) -> list[UserSummonerLink]:
     """Get all summoner links for a user, ordered by link_slot."""
     links = session.exec(
-        select(UserSummonerLink).where(UserSummonerLink.user_id == user.id).order_by(UserSummonerLink.link_slot)
+        select(UserSummonerLink)
+        .where(UserSummonerLink.user_id == user.id)
+        .order_by(UserSummonerLink.link_slot)
     ).all()
     return list(links)
 
 
-def get_user_summoner_link(user: User, session: SessionDep, link_slot: int = 0) -> Optional[UserSummonerLink]:
+def get_user_summoner_link(
+    user: User, session: SessionDep, link_slot: int = 0
+) -> Optional[UserSummonerLink]:
     """Get the summoner link for a user at a given slot (0=primary, 1-2=additional)."""
     return session.exec(
         select(UserSummonerLink).where(

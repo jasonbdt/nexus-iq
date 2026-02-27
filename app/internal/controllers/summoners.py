@@ -1,13 +1,14 @@
-from typing import Any
+"""Controller for summoner lookup, creation, and update logic."""
+
 from datetime import datetime, timezone, timedelta
 from sqlmodel import select
 
+from ..dependencies import SUMMONER_TTL_MINUTES
 from ..db import SessionDep
 from ..logging import get_logger
 from ..models import Summoner, SummonerLeagues, Match, MatchTeam, MatchTeamBans, MatchParticipant, \
     MatchParticipantRunes, MatchTeamObjectives
 from ..riot_api import RiotAPIDep, RiotAPINotFoundError, LeagueEntry
-from app.dependencies import SUMMONER_TTL_MINUTES
 from ..riot_api.models import MatchParticipantPerkStyle
 
 # from ..riot_api.summoners import RiotSummoners
@@ -20,6 +21,7 @@ def get_summoner_by_name(
     tag_line: str,
     session: SessionDep
 ) -> Summoner:
+    """Look up a summoner by game name and tag line."""
     statement = select(Summoner).where(
         Summoner.summoner_name == game_name.strip(),
         Summoner.tag_line == tag_line.strip()
@@ -32,6 +34,7 @@ def get_match_by_match_id(
     match_id: str,
     session: SessionDep
 ) -> Match:
+    """Look up a match by its Riot match ID."""
     statement = select(Match).where(
         Match.match_id == match_id
     )
@@ -40,15 +43,18 @@ def get_match_by_match_id(
 
 
 def get_summoner_by_puuid(puuid: str, session: SessionDep) -> Summoner:
+    """Look up a summoner by PUUID."""
     statement = select(Summoner).where(Summoner.puuid == puuid)
 
     return session.exec(statement).first()
 
 
 def is_summoner_ttl_expired(summoner: Summoner) -> bool:
+    """Return True if the summoner's cached data has exceeded the TTL."""
     current_time = datetime.now(timezone.utc)
-    logger.info(f"Timedelta Results: {current_time - summoner.updated_at}, "
-                f"{timedelta(minutes=SUMMONER_TTL_MINUTES)}")
+    logger.info("Timedelta Results: %s, %s",
+                current_time - summoner.updated_at,
+                timedelta(minutes=SUMMONER_TTL_MINUTES))
 
     return current_time - summoner.updated_at >= timedelta(minutes=SUMMONER_TTL_MINUTES)
 
@@ -59,6 +65,7 @@ async def create(
     session: SessionDep,
     riot_api: RiotAPIDep
 ):
+    """Fetch summoner from Riot API and persist to the database."""
     try:
         summoner = await riot_api.get_summoner(game_name, tag_line)
     except RiotAPINotFoundError:
@@ -103,6 +110,7 @@ async def find_or_create(
     session: SessionDep,
     riot_api: RiotAPIDep
 ):
+    """Return existing summoner or create one from the Riot API."""
     summoner = get_summoner_by_name(game_name, tag_line, session)
 
     if not summoner:
@@ -115,6 +123,7 @@ def update_leagues(
     leagues: list[LeagueEntry],
     session: SessionDep
 ) -> None:
+    """Sync a summoner's league entries with the latest data from Riot."""
     leagues_at_riot = [SummonerLeagues(
         league_id=league.league_id,
         queue_type=league.queue_type,
@@ -126,11 +135,13 @@ def update_leagues(
     ) for league in leagues]
 
     for index, league in enumerate(summoner.leagues):
-        summoner_league = list(filter(lambda riot_league: riot_league.league_id == league.league_id, leagues_at_riot))
+        summoner_league = list(filter(
+            lambda rl, lid=league.league_id: rl.league_id == lid,
+            leagues_at_riot
+        ))
 
         # Delete old leagues
         if not summoner_league:
-            # TODO: Determine if this is really useful (maybe needed for historic data?)
             session.delete(summoner.leagues[index])
             summoner.leagues = leagues_at_riot
         else:
@@ -144,7 +155,10 @@ def update_leagues(
             print(summoner_league)
 
 
-def get_participant_runes(style: str, perk_styles: list[MatchParticipantPerkStyle]) -> MatchParticipantPerkStyle:
+def get_participant_runes(
+    style: str, perk_styles: list[MatchParticipantPerkStyle]
+) -> MatchParticipantPerkStyle:
+    """Return the perk style matching the given description."""
     return list(filter(
         lambda x: x.description == style,
         perk_styles
@@ -157,6 +171,7 @@ async def update_matches(
     session: SessionDep,
     riot_api: RiotAPIDep
 ):
+    """Fetch and persist recent matches for a summoner."""
     recent_matches = await riot_api.get_recent_matches(summoner.puuid, summoner.region, match_count)
 
     for match in recent_matches:
@@ -207,7 +222,9 @@ async def update_matches(
 
             # Save participants
             for participant in match.info.participants:
-                await find_or_create(participant.riot_id_game_name, participant.riot_id_tagline, session, riot_api)
+                await find_or_create(
+                    participant.riot_id_game_name, participant.riot_id_tagline, session, riot_api
+                )
                 new_participant = MatchParticipant(
                     match_id=new_match.id,
                     team_id=team_ids[participant.team_id],
@@ -264,7 +281,7 @@ async def update_matches(
                 )
                 session.add(new_runes)
         else:
-            logger.debug(f"Match {match.metadata.match_id} already exist.")
+            logger.debug("Match %s already exist.", match.metadata.match_id)
     session.commit()
 
 
@@ -274,6 +291,7 @@ async def update(
     riot_api: RiotAPIDep,
     match_count: int
 ):
+    """Refresh summoner data from Riot API if the TTL has expired."""
     if is_summoner_ttl_expired(summoner):
         try:
             summoner_at_riot = await riot_api.get_summoner_by_puuid(summoner.puuid)
@@ -303,6 +321,7 @@ async def find_and_update(
     riot_api: RiotAPIDep,
     match_count: int
 ):
+    """Look up a summoner by PUUID and update their data if stale."""
     summoner = get_summoner_by_puuid(puuid, session)
 
     if not summoner:

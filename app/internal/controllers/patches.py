@@ -1,3 +1,5 @@
+"""Controller for fetching and parsing LoL patch notes."""
+
 import re
 
 from bs4 import BeautifulSoup
@@ -80,6 +82,7 @@ async def resolve_patch_url(patch_version: str) -> str | None:
 
 
 async def parse_patch_notes(patch_version: str):
+    """Fetch and parse patch notes for the given patch version into text chunks."""
     url = await resolve_patch_url(patch_version)
 
     if url is None:
