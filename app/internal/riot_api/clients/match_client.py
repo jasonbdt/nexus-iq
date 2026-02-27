@@ -156,4 +156,3 @@ class MatchClient(RiotAPIBase):
         if platform not in PLATFORM_TO_REGION:
             raise RiotAPIValidationError(f"Unknown platform: {platform}")
         return PLATFORM_TO_REGION[platform]
-

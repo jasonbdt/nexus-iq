@@ -127,7 +127,10 @@ async def get_current_user_optional(
     token: Annotated[str | None, Depends(oauth2_scheme_optional)],
     session: SessionDep,
 ):
-    """Returns the current user if authenticated, else None. Does not raise on missing/invalid token."""
+    """Return the current user if authenticated, else None.
+
+    Does not raise on missing or invalid token.
+    """
     if not token:
         return None
     try:

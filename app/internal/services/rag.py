@@ -11,7 +11,7 @@ async def build_rag_context(
     keywords: list[str] | None,
     top_k: int = 15,
 ) -> str:
-    """Embed *question*, search for similar patch-note chunks, and return a formatted context string.
+    """Embed *question*, search for similar patch-note chunks, and return a context string.
 
     Args:
         question: The user question (or resolved question) to embed.

@@ -71,4 +71,3 @@ class SummonerClient(RiotAPIBase):
         """
         platform = self._region_to_platform(region)
         return await self.get_by_puuid(puuid, platform)
-

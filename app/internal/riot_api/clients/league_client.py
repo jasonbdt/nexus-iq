@@ -70,4 +70,3 @@ class LeagueClient(RiotAPIBase):
         """
         platform = self._region_to_platform(region)
         return await self.get_entries_by_puuid(puuid, platform)
-

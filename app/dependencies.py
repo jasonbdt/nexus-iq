@@ -1,3 +1,5 @@
+"""Application-wide configuration constants loaded from environment variables."""
+
 import os
 
 

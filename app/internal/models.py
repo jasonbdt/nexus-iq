@@ -17,13 +17,15 @@ def utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-class UserRole(str, Enum):  # pylint: disable=invalid-name
+class UserRole(str, Enum):
     """Enumeration of user permission roles."""
 
+    # pylint: disable=invalid-name
     administrator = "administrator"
     moderator = "moderator"
     paid_member = "paid_member"
     member = "member"
+    # pylint: enable=invalid-name
 
 
 class UserSummonerLink(SQLModel, table=True):
