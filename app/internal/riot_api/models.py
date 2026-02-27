@@ -1,3 +1,4 @@
+# pylint: disable=duplicate-code
 """
 Pydantic models for Riot API responses.
 

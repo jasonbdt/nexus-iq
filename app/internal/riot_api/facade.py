@@ -7,7 +7,7 @@ This is the primary interface for application code to interact with the Riot API
 
 from typing import List, Optional, Self, Union
 
-from . import RiotAPINotFoundError
+from .exceptions import RiotAPINotFoundError
 from .config import RiotAPIConfig
 from .models import RiotError, SummonerProfile, SummonerLeagueInfo, Match  # , Match, MatchTimeline
 from .clients.account_client import AccountClient

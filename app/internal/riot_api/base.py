@@ -15,14 +15,15 @@ from aiohttp import ClientRequest, ClientHandlerType, ClientResponse, ClientTime
 from aiohttp.client_exceptions import ContentTypeError
 from pydantic import BaseModel
 
-from .config import RiotAPIConfig, RiotRegion, RiotPlatform
+from .config import RiotAPIConfig, RiotRegion, RiotPlatform, REGION_TO_PLATFORM
 from .exceptions import (
     RiotAPIError,
     RiotAPIAuthenticationError,
     RiotAPINotFoundError,
     RiotAPIRateLimitError,
     RiotAPIServerError,
-    RiotAPITimeoutError
+    RiotAPITimeoutError,
+    RiotAPIValidationError,
 )
 from .models import RiotError
 from ..session import get_session
@@ -284,6 +285,18 @@ class RiotAPIBase(ABC):
                     f"Unexpected status: {status}",
                     status_code=status
                 )
+
+    def _validate_puuid(self: Self, puuid: str) -> None:
+        """Validate that a PUUID is exactly 78 characters."""
+        if not puuid or len(puuid) != 78:
+            raise RiotAPIValidationError("Invalid PUUID format (must be 78 characters)")
+
+    def _region_to_platform(self: Self, region: str) -> RiotPlatform:
+        """Convert a region code (e.g. 'na') to a platform routing value."""
+        region_lower = region.lower()
+        if region_lower not in REGION_TO_PLATFORM:
+            raise RiotAPIValidationError(f"Unknown region: {region}")
+        return REGION_TO_PLATFORM[region_lower]
 
     async def close(self: Self) -> None:
         """Close the HTTP session."""

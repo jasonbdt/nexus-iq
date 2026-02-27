@@ -8,7 +8,7 @@ Uses regional routing (americas, europe, asia, sea).
 from typing import Optional, Self
 
 from ..base import RiotAPIBase
-from ..config import RiotRegion, RiotPlatform, PLATFORM_TO_REGION, REGION_TO_PLATFORM
+from ..config import RiotRegion, RiotPlatform, PLATFORM_TO_REGION
 from ..models import Match
 from ..exceptions import RiotAPIValidationError
 
@@ -94,7 +94,7 @@ class MatchClient(RiotAPIBase):
         Returns:
             List of match IDs.
         """
-        platform = self._region_code_to_platform(region)
+        platform = self._region_to_platform(region)
         region = self._platform_to_region(platform)
 
         return await self.get_match_ids_by_puuid(puuid, region, count, start)
@@ -135,7 +135,7 @@ class MatchClient(RiotAPIBase):
         Returns:
             Full match data.
         """
-        platform = self._region_code_to_platform(region)
+        platform = self._region_to_platform(region)
         region = self._platform_to_region(platform)
 
         return await self.get_match(match_id, region)
@@ -157,35 +157,3 @@ class MatchClient(RiotAPIBase):
             raise RiotAPIValidationError(f"Unknown platform: {platform}")
         return PLATFORM_TO_REGION[platform]
 
-    def _region_code_to_platform(self: Self, region: str) -> RiotPlatform:
-        """
-        Convert region code to platform.
-
-        Args:
-            region: Region code (e.g., "na", "euw").
-
-        Returns:
-            Corresponding platform routing value.
-
-        Raises:
-            RiotAPIValidationError: If region code is unknown.
-        """
-        region_lower = region.lower()
-        if region_lower not in REGION_TO_PLATFORM:
-            raise RiotAPIValidationError(f"Unknown region: {region}")
-        return REGION_TO_PLATFORM[region_lower]
-
-    def _validate_puuid(self: Self, puuid: str) -> None:
-        """
-        Validate PUUID format.
-
-        Args:
-            puuid: The PUUID to validate.
-
-        Raises:
-            RiotAPIValidationError: If PUUID format is invalid.
-        """
-        if not puuid or len(puuid) != 78:
-            raise RiotAPIValidationError(
-                message="Invalid PUUID format (must be 78 characters)"
-            )
