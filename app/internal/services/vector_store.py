@@ -1,3 +1,5 @@
+"""Qdrant vector store client for upserting and searching patch-note embeddings."""
+
 import os
 import re
 import uuid
@@ -49,11 +51,13 @@ async def ensure_collection() -> None:
 
 
 def normalize(text: str) -> str:
+    """Collapse whitespace in text and strip leading/trailing spaces."""
     text = re.sub(r"\s+", " ", text).strip()
     return text
 
 
 def point_id(patch_version: str, source: str, chunk_index: int, chunk_text: str) -> str:
+    """Generate a deterministic UUID for a chunk based on its content and position."""
     raw = f"{patch_version}|{source}|{chunk_index}|{normalize(chunk_text)}"
     return str(uuid.uuid5(NAMESPACE, raw))
 

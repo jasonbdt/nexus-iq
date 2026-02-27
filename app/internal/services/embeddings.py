@@ -1,3 +1,5 @@
+"""OpenAI embedding helpers for single and batch text embedding."""
+
 import os
 
 from openai import OpenAI

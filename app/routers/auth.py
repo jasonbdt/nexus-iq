@@ -82,7 +82,7 @@ async def register(
         link_slot=0,
         summoner_puuid=summoner.puuid,
     )
-    new_user.avatarName = f"{summoner.summoner_name}#{summoner.tag_line}"
+    new_user.avatarName = f"{summoner.summoner_name}#{summoner.tag_line}"  # pylint: disable=invalid-name
     session.add(link)
     session.add(new_user)
     session.commit()
