@@ -109,7 +109,7 @@ export class PlayerDetailsComponent implements OnInit {
   private loadMatches(summoner: SummonerSearch): void {
     this.loadingMatches.set(true);
     const region = this.getRegionFromPlatform(summoner.region);
-    this.matchService.getMatchesByPuuid(region, summoner.puuid, 10).subscribe({
+    this.matchService.getMatchesByPuuid(summoner.region, summoner.puuid, 10).subscribe({
       next: (data) => {
         this.matches.set(data);
         this.loadingMatches.set(false);

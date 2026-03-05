@@ -53,7 +53,7 @@
         <div class="quick-stats">
           @if (getSoloQueue(); as sq) {
             <div class="quick-stat">
-              <span class="qs-value">{{ (sq.win_rate * 100).toFixed(0) }}%</span>
+              <span class="qs-value">{{ (sq.win_rate).toFixed(0) }} %</span>
               <span class="qs-label">Win Rate</span>
             </div>
             <div class="quick-stat-divider"></div>
