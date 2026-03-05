@@ -1,3 +1,5 @@
+"""Match history endpoints for League of Legends."""
+
 from fastapi.routing import APIRouter
 
 from ..internal.controllers import matches as MatchesController
@@ -16,22 +18,19 @@ logger = get_logger(__name__)
 
 @router.get("")
 def index():
+    """Health check for the matches API."""
     return { "message": "It works" }
 
-# TODO: Increase default count value for recent matches
+
 @router.get("/{region}/by-puuid/{puuid}")
 async def get_recent_matches_by_puuid(
     region: str,
     puuid: str,
     riot_api: RiotAPIDep,
     session: SessionDep,
-    match_count: int = 1
+    match_count: int = 10
 ) -> list[MatchesRead]:
-    # TODO: Load matches from DB
-    # recent_matches = await riot_api.get_recent_matches(puuid, region, count)
-    recent_matches = MatchesController.get_recent_matches(puuid, region, match_count, session, riot_api)
-    print(recent_matches[0])
-
-    # return JSONResponse(content=recent_matches)
-
-    return recent_matches
+    """Return recent match history for a player by region and PUUID."""
+    return MatchesController.get_recent_matches(
+        puuid, region, match_count, session, riot_api
+    )

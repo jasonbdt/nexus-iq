@@ -1,3 +1,5 @@
+"""User management, profile, and account-linking endpoints."""
+
 from typing import Annotated
 from datetime import datetime, timezone, timedelta
 
@@ -7,6 +9,7 @@ from fastapi.param_functions import Query
 from fastapi.routing import APIRouter
 from fastapi.responses import JSONResponse
 
+from sqlalchemy import or_
 from sqlmodel import select
 
 from ..internal.auth import (
@@ -23,7 +26,6 @@ from ..internal.models import (
     UserRole,
     UserUpdateRequest,
     LinkSummonerRequest,
-    Summoner,
 )
 from ..internal.controllers import summoners as SummonersController
 from ..internal.controllers import users as UsersController
@@ -40,10 +42,13 @@ logger = get_logger(__name__)
 @router.get("/users")
 def get_all_users(
     session: SessionDep,
-    current_user: Annotated[User, Depends(require_role(UserRole.administrator, UserRole.moderator))],
+    _current_user: Annotated[
+        User, Depends(require_role(UserRole.administrator, UserRole.moderator))
+    ],
     offset: int = 0,
     limit: Annotated[int, Query(le=100)] = 100,
 ):
+    """List users (admin/moderator only)."""
     users = session.exec(select(User).offset(offset).limit(limit)).all()
     return {
         "status": 200,
@@ -57,6 +62,7 @@ def get_me(
     current_user: Annotated[User, Depends(get_current_active_user)],
     session: SessionDep,
 ):
+    """Return the current user's profile."""
     return UsersController.user_to_response(current_user, session)
 
 
@@ -66,23 +72,32 @@ def update_me(
     current_user: Annotated[User, Depends(get_current_active_user)],
     session: SessionDep,
 ):
-    if not any([payload.emailAddress is not None, payload.new_password is not None, payload.language is not None]):
+    """Update the current user's profile (email, password, language)."""
+    fields = (payload.emailAddress, payload.new_password, payload.language)
+    if not any(f is not None for f in fields):
         raise HTTPException(status_code=400, detail="No fields to update")
 
-    if payload.current_password and not verify_password(payload.current_password, current_user.password):
+    if payload.current_password and not verify_password(
+        payload.current_password, current_user.password
+    ):
         raise HTTPException(status_code=400, detail="Current password is incorrect")
 
     if payload.emailAddress is not None:
         if not payload.current_password:
-            raise HTTPException(status_code=400, detail="Current password required to change email")
-        existing = session.exec(select(User).where(User.emailAddress == payload.emailAddress)).first()
+            raise HTTPException(
+                status_code=400, detail="Current password required to change email"
+            )
+        stmt = select(User).where(User.emailAddress == payload.emailAddress)
+        existing = session.exec(stmt).first()
         if existing and existing.id != current_user.id:
             raise HTTPException(status_code=400, detail="Email already in use")
         current_user.emailAddress = payload.emailAddress
 
     if payload.new_password is not None:
         if not payload.current_password:
-            raise HTTPException(status_code=400, detail="Current password required to change password")
+            raise HTTPException(
+                status_code=400, detail="Current password required to change password"
+            )
         current_user.password = get_password_hash(payload.new_password)
 
     if payload.language is not None:
@@ -101,12 +116,14 @@ async def link_summoner(
     session: SessionDep,
     riot_api: RiotAPIDep,
 ):
+    """Link a summoner account to the current user (primary or additional slot)."""
     slot = payload.link_slot if payload.link_slot in (0, 1, 2) else 0
 
     # Slot 0 = primary; slot 1-2 = additional (Premium only)
     if slot in (1, 2):
         role = UsersController.get_user_role(current_user, session)
-        if role not in (UserRole.paid_member, UserRole.moderator, UserRole.administrator):
+        allowed = (UserRole.paid_member, UserRole.moderator, UserRole.administrator)
+        if role not in allowed:
             return JSONResponse(
                 content={"detail": "Premium role required to add additional player accounts."},
                 status_code=403,
@@ -115,7 +132,10 @@ async def link_summoner(
         additional_count = sum(1 for l in existing_additional if l.link_slot in (1, 2))
         if additional_count >= UsersController.MAX_ADDITIONAL_LINKS:
             return JSONResponse(
-                content={"detail": f"Maximum {UsersController.MAX_ADDITIONAL_LINKS} additional accounts allowed."},
+                content={
+                    "detail": f"Maximum {UsersController.MAX_ADDITIONAL_LINKS} "
+                    "additional accounts allowed."
+                },
                 status_code=400,
             )
 
@@ -156,7 +176,10 @@ async def link_summoner(
 
     session.commit()
     session.refresh(current_user)
-    logger.info(f"User[{current_user.id}] linked summoner {summoner.puuid} (slot {slot})")
+    logger.info(
+        "User[%s] linked summoner %s (slot %s)",
+        current_user.id, summoner.puuid, slot,
+    )
     return UsersController.user_to_response(current_user, session)
 
 
@@ -167,36 +190,38 @@ def remove_summoner_link(
     session: SessionDep,
 ):
     """Remove an additional player account link (Premium only, slot 1 or 2)."""
-    from sqlmodel import select
-
-    link = session.exec(
-        select(UserSummonerLink).where(
-            UserSummonerLink.id == link_id,
-            UserSummonerLink.user_id == current_user.id,
-            UserSummonerLink.link_slot.in_([1, 2]),
-        )
-    ).first()
+    stmt = select(UserSummonerLink).where(
+        UserSummonerLink.id == link_id,
+        UserSummonerLink.user_id == current_user.id,
+        or_(UserSummonerLink.link_slot == 1, UserSummonerLink.link_slot == 2),
+    )
+    link = session.exec(stmt).first()
     if not link:
         raise HTTPException(status_code=404, detail="Additional account link not found")
 
     role = UsersController.get_user_role(current_user, session)
-    if role not in (UserRole.paid_member, UserRole.moderator, UserRole.administrator):
-        raise HTTPException(status_code=403, detail="Premium role required to manage additional accounts")
+    allowed = (UserRole.paid_member, UserRole.moderator, UserRole.administrator)
+    if role not in allowed:
+        raise HTTPException(
+            status_code=403,
+            detail="Premium role required to manage additional accounts",
+        )
 
     session.delete(link)
     session.commit()
     session.refresh(current_user)
-    logger.info(f"User[{current_user.id}] removed summoner link {link_id}")
+    logger.info("User[%s] removed summoner link %s", current_user.id, link_id)
     return UsersController.user_to_response(current_user, session)
 
 
 @router.get("/users/{user_id}", response_model=UserResponse)
 def get_user(
-    token: Annotated[str, Depends(oauth2_scheme)],
+    _token: Annotated[str, Depends(oauth2_scheme)],
     user_id: int,
-    current_user: Annotated[User, Depends(get_current_active_user)],
+    _current_user: Annotated[User, Depends(get_current_active_user)],
     session: SessionDep
 ):
+    """Get a user by ID (authenticated)."""
     user = session.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -206,11 +231,12 @@ def get_user(
 
 @router.delete("/users/{user_id}")
 def delete_user(
-    token: Annotated[str, Depends(oauth2_scheme)],
+    _token: Annotated[str, Depends(oauth2_scheme)],
     user_id: int,
-    current_user: Annotated[User, Depends(get_current_active_user)],
+    _current_user: Annotated[User, Depends(get_current_active_user)],
     session: SessionDep
 ):
+    """Delete a user by ID (admin)."""
     user = session.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
