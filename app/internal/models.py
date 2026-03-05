@@ -1,16 +1,14 @@
 """SQLModel and Pydantic models for the application domain."""
+# pylint: disable=duplicate-code
 
 from typing import Optional, Self
 from datetime import datetime, timezone
 from enum import Enum
 
-from sqlalchemy import DateTime, UniqueConstraint, func
+from sqlalchemy import DateTime, UniqueConstraint
+from sqlalchemy.sql.functions import now as server_now
 from sqlmodel import Column, Field, Relationship, SQLModel
 from pydantic import BaseModel, computed_field
-
-# SQLAlchemy's func proxy is callable at runtime; Pylint cannot infer this.
-# pylint: disable=not-callable
-
 
 def utc_now() -> datetime:
     """Return the current UTC datetime."""
@@ -20,12 +18,10 @@ def utc_now() -> datetime:
 class UserRole(str, Enum):
     """Enumeration of user permission roles."""
 
-    # pylint: disable=invalid-name
-    administrator = "administrator"
-    moderator = "moderator"
-    paid_member = "paid_member"
-    member = "member"
-    # pylint: enable=invalid-name
+    ADMINISTRATOR = "administrator"
+    MODERATOR = "moderator"
+    PAID_MEMBER = "paid_member"
+    MEMBER = "member"
 
 
 class UserSummonerLink(SQLModel, table=True):
@@ -42,7 +38,7 @@ class UserSummonerLink(SQLModel, table=True):
         default_factory=utc_now,
         sa_column=Column(
             DateTime(timezone=True),
-            server_default=func.now(),
+            server_default=server_now(),
             nullable=False,
         ),
     )
@@ -74,7 +70,7 @@ class UserRoleLink(SQLModel, table=True):
         default_factory=utc_now,
         sa_column=Column(
             DateTime(timezone=True),
-            server_default=func.now(),
+            server_default=server_now(),
             nullable=False,
         ),
     )
@@ -103,7 +99,7 @@ class User(SQLModel, table=True):
         default_factory=utc_now,
         sa_column=Column(
             DateTime(timezone=True),
-            server_default=func.now(),
+            server_default=server_now(),
             nullable=False
         )
     )
@@ -111,8 +107,8 @@ class User(SQLModel, table=True):
         default_factory=utc_now,
         sa_column=Column(
             DateTime(timezone=True),
-            server_default=func.now(),
-            onupdate=func.now()
+            server_default=server_now(),
+            onupdate=server_now()
         )
     )
 
@@ -143,15 +139,15 @@ class Summoner(SQLModel, table=True):
         default_factory=utc_now,
         sa_column=Column(
             DateTime(timezone=True),
-            server_default=func.now(),
+            server_default=server_now(),
         )
     )
     updated_at: datetime = Field(
         default_factory=utc_now,
         sa_column=Column(
             DateTime(timezone=True),
-            server_default=func.now(),
-            onupdate=func.now()
+            server_default=server_now(),
+            onupdate=server_now()
         )
     )
 
@@ -571,11 +567,15 @@ class CoachSession(SQLModel, table=True):
 
     created_at: datetime = Field(
         default_factory=utc_now,
-        sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),
+        sa_column=Column(DateTime(timezone=True), server_default=server_now(), nullable=False),
     )
     updated_at: datetime = Field(
         default_factory=utc_now,
-        sa_column=Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now()),
+        sa_column=Column(
+            DateTime(timezone=True),
+            server_default=server_now(),
+            onupdate=server_now(),
+        ),
     )
 
     messages: list["CoachMessage"] = Relationship(back_populates="session")
@@ -593,7 +593,7 @@ class CoachMessage(SQLModel, table=True):
 
     created_at: datetime = Field(
         default_factory=utc_now,
-        sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),
+        sa_column=Column(DateTime(timezone=True), server_default=server_now(), nullable=False),
     )
 
     session: CoachSession | None = Relationship(back_populates="messages")
@@ -622,5 +622,3 @@ class CoachSessionCreate(BaseModel):
     """Create schema for a new coaching session."""
 
     title: str = "New Session"
-
-# pylint: enable=not-callable

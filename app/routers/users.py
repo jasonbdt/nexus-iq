@@ -43,7 +43,7 @@ logger = get_logger(__name__)
 def get_all_users(
     session: SessionDep,
     _current_user: Annotated[
-        User, Depends(require_role(UserRole.administrator, UserRole.moderator))
+        User, Depends(require_role(UserRole.ADMINISTRATOR, UserRole.MODERATOR))
     ],
     offset: int = 0,
     limit: Annotated[int, Query(le=100)] = 100,
@@ -122,7 +122,7 @@ async def link_summoner(
     # Slot 0 = primary; slot 1-2 = additional (Premium only)
     if slot in (1, 2):
         role = UsersController.get_user_role(current_user, session)
-        allowed = (UserRole.paid_member, UserRole.moderator, UserRole.administrator)
+        allowed = (UserRole.PAID_MEMBER, UserRole.MODERATOR, UserRole.ADMINISTRATOR)
         if role not in allowed:
             return JSONResponse(
                 content={"detail": "Premium role required to add additional player accounts."},
@@ -200,7 +200,7 @@ def remove_summoner_link(
         raise HTTPException(status_code=404, detail="Additional account link not found")
 
     role = UsersController.get_user_role(current_user, session)
-    allowed = (UserRole.paid_member, UserRole.moderator, UserRole.administrator)
+    allowed = (UserRole.PAID_MEMBER, UserRole.MODERATOR, UserRole.ADMINISTRATOR)
     if role not in allowed:
         raise HTTPException(
             status_code=403,

@@ -75,14 +75,14 @@ def get_user_role(user: User, session: SessionDep) -> UserRole:
         select(UserRoleLink).where(UserRoleLink.user_id == user.id)
     ).first()
     if not link:
-        return UserRole.member
+        return UserRole.MEMBER
     role = session.get(Role, link.role_id)
     if not role:
-        return UserRole.member
+        return UserRole.MEMBER
     try:
         return UserRole(role.name)
     except ValueError:
-        return UserRole.member
+        return UserRole.MEMBER
 
 
 def get_or_create_role_assignment(user: User, session: SessionDep) -> UserRoleLink:
@@ -92,7 +92,7 @@ def get_or_create_role_assignment(user: User, session: SessionDep) -> UserRoleLi
     ).first()
     if link:
         return link
-    member_role = session.exec(select(Role).where(Role.name == UserRole.member.value)).first()
+    member_role = session.exec(select(Role).where(Role.name == UserRole.MEMBER.value)).first()
     if not member_role:
         raise RuntimeError("Default 'member' role not found in roles table")
     link = UserRoleLink(user_id=user.id, role_id=member_role.id)

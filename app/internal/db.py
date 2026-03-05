@@ -3,6 +3,7 @@
 from typing import Annotated
 
 from fastapi import Depends
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import create_engine, Session, SQLModel, select
 
 from ..dependencies import DATABASE_URL
@@ -13,7 +14,7 @@ logger = get_logger(__name__)
 
 try:
     engine = create_engine(DATABASE_URL)
-except Exception as err:  # pylint: disable=broad-exception-caught
+except SQLAlchemyError as err:
     print("Error", err)
 
 
@@ -23,8 +24,8 @@ def seed_roles() -> None:
         existing = session.exec(select(Role)).all()
         if existing:
             return
-        for r in UserRole:
-            session.add(Role(name=r.value))
+        for role in UserRole:
+            session.add(Role(name=role.value))
         session.commit()
     logger.debug("Roles table seeded successfully")
 

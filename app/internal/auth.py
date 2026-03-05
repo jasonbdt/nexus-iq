@@ -27,18 +27,26 @@ oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="login", auto_error=False
 password_hash = PasswordHash.recommended()
 
 
-class Token(BaseModel):  # pylint: disable=too-few-public-methods
+class Token(BaseModel):
     """OAuth2 access token response model."""
 
     access_token: str
     token_type: str
 
+    def to_response(self) -> dict:
+        """Return the token as a dict for the API response."""
+        return {"access_token": self.access_token, "token_type": self.token_type}
 
-class TokenData(BaseModel):  # pylint: disable=too-few-public-methods
+
+class TokenData(BaseModel):
     """Decoded JWT payload data (subject email and role)."""
 
     email_address: str | None
     role: UserRole | None = None
+
+    def is_authenticated(self) -> bool:
+        """Return True if the token contains a valid subject."""
+        return self.email_address is not None
 
 
 def verify_password(plain_password: str, hashed_password: str):
@@ -153,7 +161,7 @@ def require_role(*roles: UserRole):
 
         @router.get("/admin-only")
         def admin_endpoint(
-            user: Annotated[User, Depends(require_role(UserRole.administrator))],
+            user: Annotated[User, Depends(require_role(UserRole.ADMINISTRATOR))],
         ):
             ...
     """
