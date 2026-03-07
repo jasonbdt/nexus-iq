@@ -1,6 +1,7 @@
 """Controller for summoner lookup, creation, and update logic."""
 
 import asyncio
+from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
 from sqlmodel import select
 
@@ -15,6 +16,15 @@ from ..riot_api.models import MatchParticipantPerkStyle
 # from ..riot_api.summoners import RiotSummoners
 
 logger = get_logger(__name__)
+
+
+@dataclass(frozen=True)
+class FallbackSummonerInfo:
+    """Fallback info for creating a stub summoner when Riot API lookup fails."""
+
+    game_name: str
+    tag_line: str
+    region: str
 
 
 def get_summoner_by_name(
@@ -124,9 +134,7 @@ async def find_or_create_by_puuid(
     puuid: str,
     session: SessionDep,
     riot_api: RiotAPIDep,
-    fallback_game_name: str,
-    fallback_tag_line: str,
-    fallback_region: str,
+    fallback: FallbackSummonerInfo,
 ) -> Summoner | None:
     """
     Return existing summoner or create one by PUUID.
@@ -176,13 +184,13 @@ async def find_or_create_by_puuid(
     logger.warning(
         "Could not resolve summoner by PUUID %s... (Riot API failed). "
         "Creating stub with match-time name %s#%s",
-        puuid[:8], fallback_game_name, fallback_tag_line,
+        puuid[:8], fallback.game_name, fallback.tag_line,
     )
     stub = Summoner(
         puuid=puuid,
-        region=fallback_region,
-        summoner_name=fallback_game_name,
-        tag_line=fallback_tag_line,
+        region=fallback.region,
+        summoner_name=fallback.game_name,
+        tag_line=fallback.tag_line,
         summoner_level=0,
         profile_icon=0,
         revision_date=datetime.now(timezone.utc),
@@ -239,6 +247,127 @@ def get_participant_runes(
     ))[0]
 
 
+def _persist_match_and_teams(
+    session: SessionDep,
+    riot_match
+) -> tuple[Match, dict[int, int | None]]:
+    """Create and persist Match and MatchTeams from Riot API data. Returns (match, team_ids)."""
+    new_match = Match(
+        match_id=riot_match.metadata.match_id,
+        platform=riot_match.info.platform_id,
+        queue_id=riot_match.info.queue_id,
+        game_mode=riot_match.info.game_mode,
+        game_type=riot_match.info.game_type,
+        game_version=riot_match.info.game_version,
+        map_id=riot_match.info.map_id,
+        game_start=riot_match.info.game_creation_datetime,
+        game_end=riot_match.info.game_end_datetime,
+        game_duration=riot_match.info.game_duration,
+    )
+    session.add(new_match)
+    session.commit()
+    session.refresh(new_match)
+
+    team_ids: dict[int, int | None] = {100: None, 200: None}
+    for team in riot_match.info.teams:
+        new_team = MatchTeam(
+            match_id=new_match.id,
+            team_id=team.team_id,
+            bans=[MatchTeamBans(
+                champion_id=team_ban.champion_id,
+                pick_turn=team_ban.pick_turn
+            ) for team_ban in team.bans],
+            objectives=[MatchTeamObjectives(
+                objective=name,
+                first=objective.first,
+                kills=objective.kills
+            ) for name, objective in team.objectives],
+            win=team.win
+        )
+        session.add(new_team)
+        session.commit()
+        session.refresh(new_team)
+        team_ids[team.team_id] = new_team.id
+
+    return new_match, team_ids
+
+
+async def _persist_match_participants(
+    session: SessionDep,
+    riot_api: RiotAPIDep,
+    riot_match,
+    db_match: Match,
+    team_ids: dict[int, int | None],
+) -> None:
+    """Create and persist MatchParticipants and runes for a match."""
+    for i, participant in enumerate(riot_match.info.participants):
+        if i > 0:
+            await asyncio.sleep(2.5)
+        await find_or_create_by_puuid(
+            participant.puuid,
+            session,
+            riot_api,
+            fallback=FallbackSummonerInfo(
+                game_name=participant.riot_id_game_name,
+                tag_line=participant.riot_id_tagline,
+                region=riot_match.info.platform_id.lower(),
+            ),
+        )
+        new_participant = MatchParticipant(
+            match_id=db_match.id,
+            team_id=team_ids[participant.team_id],
+            summoner_puuid=participant.puuid,
+            champion_id=participant.champion_id,
+            champion_name=participant.champion_name,
+            lane=participant.lane,
+            kills=participant.kills,
+            deaths=participant.deaths,
+            assists=participant.assists,
+            double_kills=participant.double_kills,
+            triple_kills=participant.triple_kills,
+            quadra_kills=participant.quadra_kills,
+            penta_kills=participant.penta_kills,
+            largest_multi_kill=participant.largest_multi_kill,
+            damage_dealt_to_champions=participant.damage_dealt_to_champions,
+            damage_taken=participant.damage_taken,
+            total_minions_killed=participant.total_minions_killed,
+            neutral_minions_killed=participant.neutral_minions_killed,
+            gold_earned=participant.gold_earned,
+            vision_score=participant.vision_score,
+            wards_placed=participant.wards_placed,
+            wards_killed=participant.wards_killed,
+            vision_wards_bought=participant.vision_wards_bought,
+            item0=participant.item0,
+            item1=participant.item1,
+            item2=participant.item2,
+            item3=participant.item3,
+            item4=participant.item4,
+            item5=participant.item5,
+            item6=participant.item6,
+        )
+        session.add(new_participant)
+        session.commit()
+        session.refresh(new_participant)
+
+        primary_style = get_participant_runes("primaryStyle", participant.perks.styles)
+        sub_style = get_participant_runes("subStyle", participant.perks.styles)
+        runes = MatchParticipantRunes(
+            participant_id=new_participant.id,
+            primary_style=primary_style.style,
+            primary_perk0=primary_style.selections[0].perk,
+            primary_perk1=primary_style.selections[1].perk,
+            primary_perk2=primary_style.selections[2].perk,
+            primary_perk3=primary_style.selections[3].perk,
+            secondary_style=sub_style.style,
+            secondary_perk0=sub_style.selections[0].perk,
+            secondary_perk1=sub_style.selections[1].perk,
+            stat_perk_defense=participant.perks.stat_perks.defense,
+            stat_perk_flex=participant.perks.stat_perks.flex,
+            stat_perk_offense=participant.perks.stat_perks.offense
+        )
+        session.add(runes)
+
+
 async def update_matches(
     summoner: Summoner,
     match_count: int,
@@ -250,120 +379,8 @@ async def update_matches(
 
     for match in recent_matches:
         if not get_match_by_match_id(match.metadata.match_id, session):
-            new_match = Match(
-                match_id=match.metadata.match_id,
-                platform=match.info.platform_id,
-                queue_id=match.info.queue_id,
-                game_mode=match.info.game_mode,
-                game_type=match.info.game_type,
-                game_version=match.info.game_version,
-                map_id=match.info.map_id,
-                game_start=match.info.game_creation_datetime,
-                game_end=match.info.game_end_datetime,
-                game_duration=match.info.game_duration,
-            )
-            session.add(new_match)
-            session.commit()
-            session.refresh(new_match)
-
-            # Create match teams
-            team_ids = {
-                100: None,
-                200: None
-            }
-            for team in match.info.teams:
-                new_team = MatchTeam(
-                    match_id=new_match.id,
-                    team_id=team.team_id,
-                    bans=[MatchTeamBans(
-                        champion_id=team_ban.champion_id,
-                        pick_turn=team_ban.pick_turn
-                    ) for team_ban in team.bans],
-                    objectives=[MatchTeamObjectives(
-                        objective=name,
-                        first=objective.first,
-                        kills=objective.kills
-                    ) for name, objective in team.objectives],
-                    win=team.win
-                )
-
-                session.add(new_team)
-                session.commit()
-                session.refresh(new_team)
-                team_ids[team.team_id] = new_team.id
-
-
-
-            # Save participants - use PUUID so we resolve correctly when a player
-            # has changed their Riot ID (gameName+tagLine) since the match.
-            # Short delay between lookups to stay under Riot API rate limits.
-            fallback_region = match.info.platform_id.lower()
-            for i, participant in enumerate(match.info.participants):
-                if i > 0:
-                    await asyncio.sleep(2.5)  # 2 req/europe + 2 req/euw1 per participant; 100/2min per routing
-                await find_or_create_by_puuid(
-                    participant.puuid,
-                    session,
-                    riot_api,
-                    fallback_game_name=participant.riot_id_game_name,
-                    fallback_tag_line=participant.riot_id_tagline,
-                    fallback_region=fallback_region,
-                )
-                new_participant = MatchParticipant(
-                    match_id=new_match.id,
-                    team_id=team_ids[participant.team_id],
-                    summoner_puuid=participant.puuid,
-                    champion_id=participant.champion_id,
-                    champion_name=participant.champion_name,
-                    lane=participant.lane,
-                    kills=participant.kills,
-                    deaths=participant.deaths,
-                    assists=participant.assists,
-                    double_kills=participant.double_kills,
-                    triple_kills=participant.triple_kills,
-                    quadra_kills=participant.quadra_kills,
-                    penta_kills=participant.penta_kills,
-                    largest_multi_kill=participant.largest_multi_kill,
-                    damage_dealt_to_champions=participant.damage_dealt_to_champions,
-                    damage_taken=participant.damage_taken,
-                    total_minions_killed=participant.total_minions_killed,
-                    neutral_minions_killed=participant.neutral_minions_killed,
-                    gold_earned=participant.gold_earned,
-                    vision_score=participant.vision_score,
-                    wards_placed=participant.wards_placed,
-                    wards_killed=participant.wards_killed,
-                    vision_wards_bought=participant.vision_wards_bought,
-                    item0=participant.item0,
-                    item1=participant.item1,
-                    item2=participant.item2,
-                    item3=participant.item3,
-                    item4=participant.item4,
-                    item5=participant.item5,
-                    item6=participant.item6,
-                )
-                session.add(new_participant)
-                session.commit()
-                session.refresh(new_participant)
-
-                # Create participants selected rune page
-                primary_style = get_participant_runes("primaryStyle", participant.perks.styles)
-                sub_style = get_participant_runes("subStyle", participant.perks.styles)
-
-                new_runes = MatchParticipantRunes(
-                    participant_id=new_participant.id,
-                    primary_style=primary_style.style,
-                    primary_perk0=primary_style.selections[0].perk,
-                    primary_perk1=primary_style.selections[1].perk,
-                    primary_perk2=primary_style.selections[2].perk,
-                    primary_perk3=primary_style.selections[3].perk,
-                    secondary_style=sub_style.style,
-                    secondary_perk0=sub_style.selections[0].perk,
-                    secondary_perk1=sub_style.selections[1].perk,
-                    stat_perk_defense=participant.perks.stat_perks.defense,
-                    stat_perk_flex=participant.perks.stat_perks.flex,
-                    stat_perk_offense=participant.perks.stat_perks.offense
-                )
-                session.add(new_runes)
+            new_match, team_ids = _persist_match_and_teams(session, match)
+            await _persist_match_participants(session, riot_api, match, new_match, team_ids)
         else:
             logger.debug("Match %s already exist.", match.metadata.match_id)
     session.commit()

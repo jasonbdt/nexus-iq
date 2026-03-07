@@ -25,7 +25,6 @@ def index():
 
 @router.get("/{region}/by-id/{match_id}", response_model=MatchesRead)
 def get_match_by_id(
-    region: str,
     match_id: str,
     session: SessionDep
 ) -> MatchesRead:
