@@ -16,6 +16,10 @@ export class DdragonService {
     return `${DDragon_BASE}/champion/${championName}.png`;
   }
 
+  itemImageUrl(itemId: number): string {
+    return `${DDragon_BASE}/item/${itemId}.png`;
+  }
+
   /** Rank wings border by tier. Uses wings_{tier}_plate.png (profile icon border). Place in cdn/VERSION/img/ranked-emblem/wings/ */
   rankWingsUrl(tier: string): string {
     const t = tier?.toLowerCase() ?? 'unranked';

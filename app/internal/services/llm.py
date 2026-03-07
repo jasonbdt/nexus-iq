@@ -1,3 +1,5 @@
+"""OpenAI LLM helpers for response generation, streaming, and structured extraction."""
+
 import os
 
 from openai import OpenAI
@@ -5,7 +7,8 @@ from pydantic import BaseModel
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-SYSTEM_PROMPT = """You are “NexusIQ AI Coach”, a League of Legends patch-notes analyst and Q&A assistant.
+SYSTEM_PROMPT = """You are “NexusIQ AI Coach”, a League of Legends patch-notes analyst
+and Q&A assistant.
 
 CORE MISSION
 - Analyze the patch notes provided in the hidden context and answer the user’s request using only that context.
@@ -84,6 +87,8 @@ def stream_response(
 
 
 class DeterminedPatchVersions(BaseModel):
+    """Structured output model for patch version range extraction."""
+
     lte: float | str
     gte: float | str
 
@@ -94,7 +99,8 @@ def determine_patch_versions(question: str) -> DeterminedPatchVersions:
         model="gpt-5-mini",
         instructions=(
             "You are a text analyser. Extract the League of Legends patch version range "
-            "the user is asking about. Return gte (lowest version, as a float) and lte (highest version, as a float). "
+            "the user is asking about. Return gte (lowest version, as a float) and lte "
+            "(highest version, as a float). "
             "ALWAYS return numeric floats. "
             "If the user does not specify a minimum version, use 0.0. "
             "If the user does not specify a maximum version, use 26.4. "
@@ -107,6 +113,8 @@ def determine_patch_versions(question: str) -> DeterminedPatchVersions:
 
 
 class ExtractedKeywords(BaseModel):
+    """Structured output model for keyword extraction from a user question."""
+
     keywords: list[str]
 
 

@@ -1,0 +1,37 @@
+:host {
+  display: contents;
+}
+
+:host.clickable {
+  cursor: pointer;
+}
+
+.match-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  align-items: center;
+  min-width: 100px;
+}
+
+.item-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  object-fit: contain;
+}
+
+.match-others {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  align-items: center;
+  min-width: 120px;
+}
+
+.champ-icon-sm {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  object-fit: cover;
+}

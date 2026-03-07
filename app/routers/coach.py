@@ -22,14 +22,13 @@ from ..internal.models import (
     CoachSessionRead,
     User,
 )
-from ..internal.services.embeddings import embed_text
 from ..internal.services.llm import (
     ConversationHistory,
     stream_response,
     determine_patch_versions,
     extract_keywords,
 )
-from ..internal.services.vector_store import search_similar
+from ..internal.services.rag import build_rag_context
 
 logger = get_logger(__name__)
 
@@ -67,15 +66,7 @@ async def _build_context(
     resolved = _resolved_question(question, history or [])
     patch_versions = determine_patch_versions(resolved)
     keywords = extract_keywords(resolved)
-    query_embedding = await embed_text(question)
-    results = await search_similar(
-        query_embedding, patch_versions, top_k=top_k, keywords=keywords or None
-    )
-    parts = [
-        f"[Patch {r['patch_version']}]\n{r['text']}"
-        for r in results
-    ]
-    return "\n\n---\n\n".join(parts)
+    return await build_rag_context(question, patch_versions, keywords, top_k=top_k)
 
 
 # ── Session CRUD ──────────────────────────────────────────────────────────────

@@ -15,4 +15,8 @@ export class MatchService {
       params,
     });
   }
+
+  getMatchById(region: string, matchId: string): Observable<MatchesRead> {
+    return this.http.get<MatchesRead>(`${API_BASE}/matches/${region}/by-id/${matchId}`);
+  }
 }

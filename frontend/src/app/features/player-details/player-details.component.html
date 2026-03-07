@@ -53,7 +53,7 @@
         <div class="quick-stats">
           @if (getSoloQueue(); as sq) {
             <div class="quick-stat">
-              <span class="qs-value">{{ (sq.win_rate * 100).toFixed(0) }}%</span>
+              <span class="qs-value">{{ (sq.win_rate).toFixed(0) }} %</span>
               <span class="qs-label">Win Rate</span>
             </div>
             <div class="quick-stat-divider"></div>
@@ -103,38 +103,12 @@
 
               <div class="matches-list">
                 @for (match of matches().slice(0, 5); track match.match_id) {
-                  @let participant = getPlayerParticipant(match);
                   @let won = didWin(match);
                   <div class="match-row" [class.win]="won" [class.loss]="!won">
-                    <div class="match-result-bar" [class.win-bar]="won" [class.loss-bar]="!won"></div>
-                    <div class="match-champion">
-                      <img
-                        [src]="getChampionIconUrl(participant?.champion_name || 'Jinx')"
-                        [alt]="participant?.champion_name"
-                        class="champ-icon"
-                        (error)="$any($event.target).src = getChampionIconUrl('Jinx')"
-                      />
-                    </div>
-                    <div class="match-info">
-                      <p class="match-champ-name">{{ participant?.champion_name }}</p>
-                      <p class="match-mode">{{ match.game_mode }}</p>
-                    </div>
-                    <div class="match-kda">
-                      <p class="kda-score">
-                        <span class="kda-k">{{ participant?.kills }}</span>
-                        /
-                        <span class="kda-d">{{ participant?.deaths }}</span>
-                        /
-                        <span class="kda-a">{{ participant?.assists }}</span>
-                      </p>
-                      <p class="kda-ratio">{{ participant?.kda?.toFixed(2) }} KDA</p>
-                    </div>
-                    <div class="match-meta">
-                      <span class="match-outcome" [class.win-text]="won" [class.loss-text]="!won">
-                        {{ won ? 'Victory' : 'Defeat' }}
-                      </span>
-                      <span class="match-duration">{{ getGameDuration(match) }}</span>
-                    </div>
+                    <app-match-overview
+                      [match]="match"
+                      [currentPlayerRiotId]="gameName() + '#' + tagLine()"
+                    />
                   </div>
                 }
               </div>
@@ -226,42 +200,12 @@
             </div>
             <div class="matches-list">
               @for (match of matches(); track match.match_id) {
-                @let participant = getPlayerParticipant(match);
                 @let won = didWin(match);
                 <div class="match-row" [class.win]="won" [class.loss]="!won">
-                  <div class="match-result-bar" [class.win-bar]="won" [class.loss-bar]="!won"></div>
-                  <div class="match-champion">
-                    <img
-                      [src]="getChampionIconUrl(participant?.champion_name || 'Jinx')"
-                      [alt]="participant?.champion_name"
-                      class="champ-icon"
-                      (error)="$any($event.target).src = getChampionIconUrl('Jinx')"
-                    />
-                  </div>
-                  <div class="match-info">
-                    <p class="match-champ-name">{{ participant?.champion_name }}</p>
-                    <p class="match-mode">{{ match.game_mode }} · {{ match.game_start | date: 'MMM d' }}</p>
-                  </div>
-                  <div class="match-kda">
-                    <p class="kda-score">
-                      <span class="kda-k">{{ participant?.kills }}</span>
-                      /
-                      <span class="kda-d">{{ participant?.deaths }}</span>
-                      /
-                      <span class="kda-a">{{ participant?.assists }}</span>
-                    </p>
-                    <p class="kda-ratio">{{ participant?.kda?.toFixed(2) }} KDA</p>
-                  </div>
-                  <div class="match-extra">
-                    <p class="match-cs">{{ participant?.total_cs }} CS</p>
-                    <p class="match-gold">{{ participant?.gold_earned?.toLocaleString() }}g</p>
-                  </div>
-                  <div class="match-meta">
-                    <span class="match-outcome" [class.win-text]="won" [class.loss-text]="!won">
-                      {{ won ? 'Victory' : 'Defeat' }}
-                    </span>
-                    <span class="match-duration">{{ getGameDuration(match) }}</span>
-                  </div>
+                  <app-match-overview
+                    [match]="match"
+                    [currentPlayerRiotId]="gameName() + '#' + tagLine()"
+                  />
                 </div>
               }
             </div>

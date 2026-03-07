@@ -5,7 +5,6 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDialog } from '@angular/material/dialog';
-import { DatePipe } from '@angular/common';
 import { SummonerService } from '../../core/services/summoner.service';
 import { MatchService } from '../../core/services/match.service';
 import { DdragonService } from '../../core/services/ddragon.service';
@@ -13,11 +12,13 @@ import { NavbarComponent } from '../../shared/components/navbar/navbar.component
 import { AiChatWidgetComponent } from '../../shared/components/ai-chat-widget/ai-chat-widget.component';
 import { LoginModalComponent } from '../../shared/components/login-modal/login-modal.component';
 import { RegisterModalComponent } from '../../shared/components/register-modal/register-modal.component';
+import { MatchOverviewComponent } from '../../shared/components/match-overview/match-overview';
 import { SummonerSearch, MatchesRead, LeagueEntry, Participant } from '../../core/models';
 
 @Component({
   selector: 'app-player-details',
   imports: [
+    MatchOverviewComponent,
     RouterLink,
     MatTabsModule,
     MatButtonModule,
@@ -25,7 +26,6 @@ import { SummonerSearch, MatchesRead, LeagueEntry, Participant } from '../../cor
     MatProgressSpinnerModule,
     NavbarComponent,
     AiChatWidgetComponent,
-    DatePipe,
   ],
   templateUrl: './player-details.component.html',
   styleUrl: './player-details.component.scss',
@@ -109,7 +109,7 @@ export class PlayerDetailsComponent implements OnInit {
   private loadMatches(summoner: SummonerSearch): void {
     this.loadingMatches.set(true);
     const region = this.getRegionFromPlatform(summoner.region);
-    this.matchService.getMatchesByPuuid(region, summoner.puuid, 10).subscribe({
+    this.matchService.getMatchesByPuuid(summoner.region, summoner.puuid, 10).subscribe({
       next: (data) => {
         this.matches.set(data);
         this.loadingMatches.set(false);

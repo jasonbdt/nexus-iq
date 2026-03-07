@@ -1,3 +1,5 @@
+"""Authentication endpoints: registration and login."""
+
 from typing import Annotated
 from datetime import timedelta
 
@@ -37,9 +39,10 @@ async def register(
     session: SessionDep,
     riot_api: RiotAPIDep,
 ):
-    logger.info(f"Try to register User with email: {user_in.emailAddress}")
+    """Register a new user with email, password, and primary player account."""
+    logger.info("Try to register User with email: %s", user_in.emailAddress)
     if user_in.password != user_in.password_confirm:
-        logger.warning(f"Passwords for User[{user_in.emailAddress}] do not match")
+        logger.warning("Passwords for User[%s] do not match", user_in.emailAddress)
         raise HTTPException(status_code=400, detail="Passwords do not match")
 
     user_in.password = get_password_hash(user_in.password)
@@ -60,9 +63,9 @@ async def register(
         session.add(new_user)
         session.commit()
         session.refresh(new_user)
-    except IntegrityError:
-        logger.warning(f"User[{user_in.emailAddress}] already exists")
-        raise HTTPException(status_code=400, detail="User already exists")
+    except IntegrityError as exc:
+        logger.warning("User[%s] already exists", user_in.emailAddress)
+        raise HTTPException(status_code=400, detail="User already exists") from exc
 
     # Create default role assignment (2NF)
     UsersController.get_or_create_role_assignment(new_user, session)
@@ -75,21 +78,27 @@ async def register(
         riot_api,
     )
     if not summoner:
-        raise HTTPException(status_code=404, detail="Player account not found. Check the name and tag.")
+        raise HTTPException(
+            status_code=404,
+            detail="Player account not found. Check the name and tag.",
+        )
 
     link = UserSummonerLink(
         user_id=new_user.id,
         link_slot=0,
         summoner_puuid=summoner.puuid,
     )
-    new_user.avatarName = f"{summoner.summoner_name}#{summoner.tag_line}"
+    setattr(new_user, "avatarName", f"{summoner.summoner_name}#{summoner.tag_line}")
     session.add(link)
     session.add(new_user)
     session.commit()
     session.refresh(new_user)
-    logger.info(f"User[{new_user.id}] linked primary summoner {summoner.puuid} during registration")
+    logger.info(
+        "User[%s] linked primary summoner %s during registration",
+        new_user.id, summoner.puuid,
+    )
 
-    logger.info(f"User[{new_user.id}] created successfully")
+    logger.info("User[%s] created successfully", new_user.id)
     return UsersController.user_to_response(new_user, session)
 
 
@@ -98,7 +107,8 @@ async def login(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     session: SessionDep
 ) -> Token:
-    logger.info(f"Try to authenticate User: {form_data.username}")
+    """Authenticate user and return JWT access token."""
+    logger.info("Try to authenticate User: %s", form_data.username)
     user = authenticate_user(form_data.username, form_data.password, session)
     if not user:
         logger.warning("Authentication error: Incorrect username or password")
@@ -115,5 +125,5 @@ async def login(
         expires_delta=access_token_expires,
     )
 
-    logger.info(f"Authentication was successful")
+    logger.info("Authentication was successful")
     return Token(access_token=access_token, token_type="bearer")

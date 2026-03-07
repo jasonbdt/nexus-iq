@@ -8,9 +8,8 @@ Uses platform routing (na1, euw1, etc.).
 from typing import Self
 
 from ..base import RiotAPIBase
-from ..config import RiotPlatform, REGION_TO_PLATFORM
+from ..config import RiotPlatform
 from ..models import SummonerInfo
-from ..exceptions import RiotAPIValidationError
 
 
 class SummonerClient(RiotAPIBase):
@@ -72,36 +71,3 @@ class SummonerClient(RiotAPIBase):
         """
         platform = self._region_to_platform(region)
         return await self.get_by_puuid(puuid, platform)
-
-    def _region_to_platform(self, region: str) -> RiotPlatform:
-        """
-        Convert a region code to platform routing value.
-
-        Args:
-            region: Region code (e.g., "na", "euw").
-
-        Returns:
-            Corresponding platform routing value.
-
-        Raises:
-            RiotAPIValidationError: If region is unknown.
-        """
-        region_lower = region.lower()
-        if region_lower not in REGION_TO_PLATFORM:
-            raise RiotAPIValidationError(f"Unknown region: {region}")
-        return REGION_TO_PLATFORM[region_lower]
-
-    def _validate_puuid(self, puuid: str) -> None:
-        """
-        Validate PUUID format.
-
-        Args:
-            puuid: The PUUID to validate.
-
-        Raises:
-            RiotAPIValidationError: If PUUID format is invalid.
-        """
-        if not puuid or len(puuid) != 78:
-            raise RiotAPIValidationError(
-                "Invalid PUUID format (must be 78 characters)"
-            )

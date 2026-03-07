@@ -1,0 +1,29 @@
+<app-navbar />
+
+@if (loading()) {
+  <div class="loading-state">
+    <mat-spinner diameter="48" />
+    <p>Loading match details...</p>
+  </div>
+} @else if (error()) {
+  <div class="error-state">
+    <mat-icon class="error-icon">sports_esports</mat-icon>
+    <h2>Match Not Found</h2>
+    <p>{{ error() }}</p>
+    <a mat-flat-button routerLink="/" class="back-btn">Back to Home</a>
+  </div>
+} @else if (match(); as m) {
+  <div class="match-details-page">
+    <a mat-button routerLink="/" class="back-link">
+      <mat-icon>arrow_back</mat-icon>
+      Back
+    </a>
+    <div class="match-details-card match-row">
+      <app-match-overview
+        [match]="m"
+        [currentPlayerRiotId]="focalRiotId() ?? ''"
+        [clickable]="false"
+      />
+    </div>
+  </div>
+}

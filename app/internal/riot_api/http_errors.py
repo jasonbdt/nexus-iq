@@ -37,50 +37,28 @@ def riot_exception_to_http(exc: RiotAPIError) -> HTTPException:
         except RiotAPIError as e:
             raise riot_exception_to_http(e)
     """
-    match exc:
-        case RiotAPINotFoundError():
-            return HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Summoner not found"
-            )
+    status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+    detail_msg = "Internal server error"
+    headers = None
 
-        case RiotAPIValidationError():
-            return HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=exc.message
-            )
+    if isinstance(exc, RiotAPINotFoundError):
+        status_code = status.HTTP_404_NOT_FOUND
+        detail_msg = "Summoner not found"
+    elif isinstance(exc, RiotAPIValidationError):
+        status_code = status.HTTP_400_BAD_REQUEST
+        detail_msg = exc.message
+    elif isinstance(exc, RiotAPIAuthenticationError):
+        status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+        detail_msg = "Service temporarily unavailable"
+    elif isinstance(exc, RiotAPIRateLimitError):
+        status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+        detail_msg = "Service temporarily unavailable"
+        headers = {"Retry-After": str(exc.retry_after)} if exc.retry_after else None
+    elif isinstance(exc, RiotAPITimeoutError):
+        status_code = status.HTTP_504_GATEWAY_TIMEOUT
+        detail_msg = "External service timeout"
+    elif isinstance(exc, RiotAPIServerError):
+        status_code = status.HTTP_502_BAD_GATEWAY
+        detail_msg = "External service error"
 
-        case RiotAPIAuthenticationError():
-            # Don't expose internal auth issues to clients
-            return HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Service temporarily unavailable"
-            )
-
-        case RiotAPIRateLimitError():
-            headers = {}
-            if exc.retry_after:
-                headers["Retry-After"] = str(exc.retry_after)
-            return HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Service temporarily unavailable",
-                headers=headers if headers else None
-            )
-
-        case RiotAPITimeoutError():
-            return HTTPException(
-                status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-                detail="External service timeout"
-            )
-
-        case RiotAPIServerError():
-            return HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="External service error"
-            )
-
-        case _:
-            return HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Internal server error"
-            )
+    return HTTPException(status_code=status_code, detail=detail_msg, headers=headers)

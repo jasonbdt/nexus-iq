@@ -4,18 +4,25 @@ Pydantic models for Riot API responses.
 Provides type-safe models for parsing API responses and composite models
 for the facade layer.
 """
+# pylint: disable=duplicate-code
 
 from datetime import datetime, timezone
-from typing import Any, Optional, Self
+from typing import Optional, Self
 
 from pydantic import BaseModel, Field, computed_field
+
+
+class RiotModel(BaseModel):
+    """Base model for Riot API responses with camelCase alias support."""
+
+    model_config = {"populate_by_name": True}
 
 
 # =============================================================================
 # Standard API Models
 # =============================================================================
 
-class RiotError(BaseModel):
+class RiotError(RiotModel):
     """Response model for errors."""
     status: int
     message: str
@@ -24,16 +31,14 @@ class RiotError(BaseModel):
 # Account API Models
 # =============================================================================
 
-class RiotAccount(BaseModel):
+class RiotAccount(RiotModel):
     """Response model for account/v1 endpoints."""
     puuid: str
     game_name: str = Field(alias="gameName")
     tag_line: str = Field(alias="tagLine")
 
-    model_config = {"populate_by_name": True}
 
-
-class AccountRegion(BaseModel):
+class AccountRegion(RiotModel):
     """Response model for region lookup endpoint."""
     region: str
 
@@ -42,16 +47,12 @@ class AccountRegion(BaseModel):
 # Summoner API Models
 # =============================================================================
 
-class SummonerInfo(BaseModel):
+class SummonerInfo(RiotModel):
     """Response model for summoner/v4 endpoints."""
-    # id: str
-    # account_id: str = Field(alias="accountId")
     puuid: str
     profile_icon_id: int = Field(alias="profileIconId")
     revision_date: int = Field(alias="revisionDate")
     summoner_level: int = Field(alias="summonerLevel")
-
-    model_config = {"populate_by_name": True}
 
     @computed_field
     @property
@@ -64,13 +65,12 @@ class SummonerInfo(BaseModel):
 # League API Models
 # =============================================================================
 
-class LeagueEntry(BaseModel):
+class LeagueEntry(RiotModel):
     """Response model for league/v4 entries."""
     league_id: str = Field(alias="leagueId")
     queue_type: str = Field(alias="queueType")
     tier: str
     rank: str
-    # summoner_id: str = Field(alias="summonerId")
     league_points: int = Field(alias="leaguePoints")
     wins: int
     losses: int
@@ -79,56 +79,50 @@ class LeagueEntry(BaseModel):
     fresh_blood: bool = Field(False, alias="freshBlood")
     hot_streak: bool = Field(False, alias="hotStreak")
 
-    model_config = {"populate_by_name": True}
-
 
 # =============================================================================
 # Match API Models
 # =============================================================================
 
-class MatchMetadata(BaseModel):
+class MatchMetadata(RiotModel):
     """Metadata for a match."""
     data_version: str = Field(alias="dataVersion")
     match_id: str = Field(alias="matchId")
     participants: list[str]
 
-    model_config = {"populate_by_name": True}
 
+class MatchParticipantPerkStats(RiotModel):
+    """Participant perk stat values (defense, flex, offense)."""
 
-class MatchParticipantPerkStats(BaseModel):
     defense: int
     flex: int
     offense: int
 
-    model_config = {"populate_by_name": True}
 
+class MatchParticipantPerkStyleSelection(RiotModel):
+    """Single rune selection within a perk style."""
 
-class MatchParticipantPerkStyleSelection(BaseModel):
     perk: int
     var1: int
     var2: int
     var3: int
 
-    model_config = {"populate_by_name": True}
 
+class MatchParticipantPerkStyle(RiotModel):
+    """Rune style (primary or secondary tree) with selections."""
 
-class MatchParticipantPerkStyle(BaseModel):
     description: str
     selections: list[MatchParticipantPerkStyleSelection]
     style: int
 
-    model_config = {"populate_by_name": True}
 
-
-class MatchParticipantPerks(BaseModel):
+class MatchParticipantPerks(RiotModel):
     """Participants perks within a match."""
     stat_perks: MatchParticipantPerkStats = Field(alias="statPerks")
     styles: list[MatchParticipantPerkStyle]
 
-    model_config = {"populate_by_name": True}
 
-
-class MatchParticipant(BaseModel):
+class MatchParticipant(RiotModel):
     """Participant data within a match."""
     puuid: str
     summoner_name: str = Field(alias="summonerName")
@@ -188,8 +182,6 @@ class MatchParticipant(BaseModel):
     team_position: str = Field("", alias="teamPosition")
     lane: str
 
-    model_config = {"populate_by_name": True}
-
     @computed_field
     @property
     def kda(self: Self) -> float:
@@ -206,7 +198,7 @@ class MatchParticipant(BaseModel):
         return self.total_minions_killed + self.neutral_minions_killed
 
 
-class MatchTeamBans(BaseModel):
+class MatchTeamBans(RiotModel):
     """Team bans within a match."""
     champion_id: int = Field(alias="championId")
     pick_turn: int = Field(alias="pickTurn")
@@ -229,17 +221,15 @@ class MatchTeamObjectives(BaseModel):
     tower: MatchObjective
 
 
-class MatchTeam(BaseModel):
+class MatchTeam(RiotModel):
     """Team data within a match."""
     team_id: int = Field(alias="teamId")
     bans: list["MatchTeamBans"]
     objectives: MatchTeamObjectives
     win: bool
 
-    model_config = {"populate_by_name": True}
 
-
-class MatchInfo(BaseModel):
+class MatchInfo(RiotModel):
     """Match information (game data)."""
     game_creation: int = Field(alias="gameCreation")
     game_duration: int = Field(alias="gameDuration")
@@ -255,8 +245,6 @@ class MatchInfo(BaseModel):
     platform_id: str = Field(alias="platformId")
     participants: list[MatchParticipant]
     teams: list[MatchTeam]
-
-    model_config = {"populate_by_name": True}
 
     @computed_field
     @property
@@ -311,6 +299,7 @@ class SummonerProfile(BaseModel):
     @computed_field
     @property
     def riot_id(self: Self) -> str:
+        """Return Riot ID as name#tag."""
         return f"{self.summoner_name}#{self.tag_line}"
 
 

@@ -1,13 +1,23 @@
+"""Controller for retrieving match data from the database."""
+
 from sqlmodel import select
 
 from ..db import SessionDep
 from ..logging import get_logger
-from ..models import Summoner, Match, MatchParticipant, MatchTeam
-from ..riot_api import RiotAPIDep, RiotAPINotFoundError, RiotPlatform, REGION_TO_PLATFORM
+from ..models import Match, MatchParticipant, MatchTeam
+from ..riot_api import RiotAPIDep, RiotPlatform, REGION_TO_PLATFORM
 
 logger = get_logger(__name__)
 
-def get_matches(puuid: str, platform: RiotPlatform, match_count: int, session: SessionDep):
+
+def get_match_by_id(match_id: str, session: SessionDep) -> Match | None:
+    """Return a single match by its Riot match ID, or None if not found."""
+    statement = select(Match).where(Match.match_id == match_id)
+    return session.exec(statement).first()
+
+
+def get_matches(puuid: str, _platform: RiotPlatform, match_count: int, session: SessionDep):
+    """Return stored matches for a player from the database."""
     statement = select(Match).join(MatchParticipant).join(MatchTeam).where(
         MatchParticipant.summoner_puuid == puuid,
         # Match.platform == platform.upper()
@@ -20,11 +30,13 @@ def get_matches(puuid: str, platform: RiotPlatform, match_count: int, session: S
 
     return matches
 
+
 def get_recent_matches(
     puuid: str,
     region: str,
     match_count: int,
     session: SessionDep,
-    riot_api: RiotAPIDep
+    _riot_api: RiotAPIDep
 ):
+    """Return recent matches for a player, delegating to get_matches."""
     return get_matches(puuid, REGION_TO_PLATFORM[region], match_count, session)

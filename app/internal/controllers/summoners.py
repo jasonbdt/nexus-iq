@@ -1,13 +1,16 @@
-from typing import Any
+"""Controller for summoner lookup, creation, and update logic."""
+
+import asyncio
+from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
 from sqlmodel import select
 
+from ...dependencies import SUMMONER_TTL_MINUTES
 from ..db import SessionDep
 from ..logging import get_logger
 from ..models import Summoner, SummonerLeagues, Match, MatchTeam, MatchTeamBans, MatchParticipant, \
     MatchParticipantRunes, MatchTeamObjectives
 from ..riot_api import RiotAPIDep, RiotAPINotFoundError, LeagueEntry
-from app.dependencies import SUMMONER_TTL_MINUTES
 from ..riot_api.models import MatchParticipantPerkStyle
 
 # from ..riot_api.summoners import RiotSummoners
@@ -15,11 +18,21 @@ from ..riot_api.models import MatchParticipantPerkStyle
 logger = get_logger(__name__)
 
 
+@dataclass(frozen=True)
+class FallbackSummonerInfo:
+    """Fallback info for creating a stub summoner when Riot API lookup fails."""
+
+    game_name: str
+    tag_line: str
+    region: str
+
+
 def get_summoner_by_name(
     game_name: str,
     tag_line: str,
     session: SessionDep
 ) -> Summoner:
+    """Look up a summoner by game name and tag line."""
     statement = select(Summoner).where(
         Summoner.summoner_name == game_name.strip(),
         Summoner.tag_line == tag_line.strip()
@@ -32,6 +45,7 @@ def get_match_by_match_id(
     match_id: str,
     session: SessionDep
 ) -> Match:
+    """Look up a match by its Riot match ID."""
     statement = select(Match).where(
         Match.match_id == match_id
     )
@@ -40,15 +54,18 @@ def get_match_by_match_id(
 
 
 def get_summoner_by_puuid(puuid: str, session: SessionDep) -> Summoner:
+    """Look up a summoner by PUUID."""
     statement = select(Summoner).where(Summoner.puuid == puuid)
 
     return session.exec(statement).first()
 
 
 def is_summoner_ttl_expired(summoner: Summoner) -> bool:
+    """Return True if the summoner's cached data has exceeded the TTL."""
     current_time = datetime.now(timezone.utc)
-    logger.info(f"Timedelta Results: {current_time - summoner.updated_at}, "
-                f"{timedelta(minutes=SUMMONER_TTL_MINUTES)}")
+    logger.info("Timedelta Results: %s, %s",
+                current_time - summoner.updated_at,
+                timedelta(minutes=SUMMONER_TTL_MINUTES))
 
     return current_time - summoner.updated_at >= timedelta(minutes=SUMMONER_TTL_MINUTES)
 
@@ -59,6 +76,7 @@ async def create(
     session: SessionDep,
     riot_api: RiotAPIDep
 ):
+    """Fetch summoner from Riot API and persist to the database."""
     try:
         summoner = await riot_api.get_summoner(game_name, tag_line)
     except RiotAPINotFoundError:
@@ -103,6 +121,7 @@ async def find_or_create(
     session: SessionDep,
     riot_api: RiotAPIDep
 ):
+    """Return existing summoner or create one from the Riot API."""
     summoner = get_summoner_by_name(game_name, tag_line, session)
 
     if not summoner:
@@ -110,11 +129,83 @@ async def find_or_create(
 
     return summoner
 
+
+async def find_or_create_by_puuid(
+    puuid: str,
+    session: SessionDep,
+    riot_api: RiotAPIDep,
+    fallback: FallbackSummonerInfo,
+) -> Summoner | None:
+    """
+    Return existing summoner or create one by PUUID.
+
+    Uses PUUID for lookup/creation so it works when a player has changed their
+    Riot ID (gameName+tagLine) since the match was played. Falls back to a
+    minimal summoner record if the Riot API lookup fails (e.g. deleted account).
+    """
+    summoner = get_summoner_by_puuid(puuid, session)
+    if summoner:
+        return summoner
+
+    profile = await riot_api.get_summoner_by_puuid(puuid)
+    if profile:
+        summoner_in_db = get_summoner_by_puuid(profile.puuid, session)
+        if not summoner_in_db:
+            summoner_leagues = [
+                SummonerLeagues(
+                    league_id=league.league_id,
+                    queue_type=league.queue_type,
+                    tier=league.tier,
+                    rank=league.rank,
+                    wins=league.wins,
+                    losses=league.losses,
+                    league_points=league.league_points,
+                )
+                for league in profile.leagues
+            ]
+            new_summoner = Summoner(
+                puuid=profile.puuid,
+                region=profile.region,
+                summoner_name=profile.summoner_name,
+                tag_line=profile.tag_line,
+                summoner_level=profile.summoner_level,
+                profile_icon=profile.profile_icon,
+                revision_date=profile.revision_date,
+                leagues=summoner_leagues,
+            )
+            session.add(new_summoner)
+            session.commit()
+            session.refresh(new_summoner)
+            return new_summoner
+        return summoner_in_db
+
+    # Fallback: Riot API failed (e.g. renamed/deleted account). Create minimal
+    # summoner to satisfy FK constraint for match participants.
+    logger.warning(
+        "Could not resolve summoner by PUUID %s... (Riot API failed). "
+        "Creating stub with match-time name %s#%s",
+        puuid[:8], fallback.game_name, fallback.tag_line,
+    )
+    stub = Summoner(
+        puuid=puuid,
+        region=fallback.region,
+        summoner_name=fallback.game_name,
+        tag_line=fallback.tag_line,
+        summoner_level=0,
+        profile_icon=0,
+        revision_date=datetime.now(timezone.utc),
+    )
+    session.add(stub)
+    session.commit()
+    session.refresh(stub)
+    return stub
+
 def update_leagues(
     summoner: Summoner,
     leagues: list[LeagueEntry],
     session: SessionDep
 ) -> None:
+    """Sync a summoner's league entries with the latest data from Riot."""
     leagues_at_riot = [SummonerLeagues(
         league_id=league.league_id,
         queue_type=league.queue_type,
@@ -126,11 +217,13 @@ def update_leagues(
     ) for league in leagues]
 
     for index, league in enumerate(summoner.leagues):
-        summoner_league = list(filter(lambda riot_league: riot_league.league_id == league.league_id, leagues_at_riot))
+        summoner_league = list(filter(
+            lambda rl, lid=league.league_id: rl.league_id == lid,
+            leagues_at_riot
+        ))
 
         # Delete old leagues
         if not summoner_league:
-            # TODO: Determine if this is really useful (maybe needed for historic data?)
             session.delete(summoner.leagues[index])
             summoner.leagues = leagues_at_riot
         else:
@@ -144,11 +237,135 @@ def update_leagues(
             print(summoner_league)
 
 
-def get_participant_runes(style: str, perk_styles: list[MatchParticipantPerkStyle]) -> MatchParticipantPerkStyle:
+def get_participant_runes(
+    style: str, perk_styles: list[MatchParticipantPerkStyle]
+) -> MatchParticipantPerkStyle:
+    """Return the perk style matching the given description."""
     return list(filter(
         lambda x: x.description == style,
         perk_styles
     ))[0]
+
+
+def _persist_match_and_teams(
+    session: SessionDep,
+    riot_match
+) -> tuple[Match, dict[int, int | None]]:
+    """Create and persist Match and MatchTeams from Riot API data. Returns (match, team_ids)."""
+    new_match = Match(
+        match_id=riot_match.metadata.match_id,
+        platform=riot_match.info.platform_id,
+        queue_id=riot_match.info.queue_id,
+        game_mode=riot_match.info.game_mode,
+        game_type=riot_match.info.game_type,
+        game_version=riot_match.info.game_version,
+        map_id=riot_match.info.map_id,
+        game_start=riot_match.info.game_creation_datetime,
+        game_end=riot_match.info.game_end_datetime,
+        game_duration=riot_match.info.game_duration,
+    )
+    session.add(new_match)
+    session.commit()
+    session.refresh(new_match)
+
+    team_ids: dict[int, int | None] = {100: None, 200: None}
+    for team in riot_match.info.teams:
+        new_team = MatchTeam(
+            match_id=new_match.id,
+            team_id=team.team_id,
+            bans=[MatchTeamBans(
+                champion_id=team_ban.champion_id,
+                pick_turn=team_ban.pick_turn
+            ) for team_ban in team.bans],
+            objectives=[MatchTeamObjectives(
+                objective=name,
+                first=objective.first,
+                kills=objective.kills
+            ) for name, objective in team.objectives],
+            win=team.win
+        )
+        session.add(new_team)
+        session.commit()
+        session.refresh(new_team)
+        team_ids[team.team_id] = new_team.id
+
+    return new_match, team_ids
+
+
+async def _persist_match_participants(
+    session: SessionDep,
+    riot_api: RiotAPIDep,
+    riot_match,
+    db_match: Match,
+    team_ids: dict[int, int | None],
+) -> None:
+    """Create and persist MatchParticipants and runes for a match."""
+    for i, participant in enumerate(riot_match.info.participants):
+        if i > 0:
+            await asyncio.sleep(2.5)
+        await find_or_create_by_puuid(
+            participant.puuid,
+            session,
+            riot_api,
+            fallback=FallbackSummonerInfo(
+                game_name=participant.riot_id_game_name,
+                tag_line=participant.riot_id_tagline,
+                region=riot_match.info.platform_id.lower(),
+            ),
+        )
+        new_participant = MatchParticipant(
+            match_id=db_match.id,
+            team_id=team_ids[participant.team_id],
+            summoner_puuid=participant.puuid,
+            champion_id=participant.champion_id,
+            champion_name=participant.champion_name,
+            lane=participant.lane,
+            kills=participant.kills,
+            deaths=participant.deaths,
+            assists=participant.assists,
+            double_kills=participant.double_kills,
+            triple_kills=participant.triple_kills,
+            quadra_kills=participant.quadra_kills,
+            penta_kills=participant.penta_kills,
+            largest_multi_kill=participant.largest_multi_kill,
+            damage_dealt_to_champions=participant.damage_dealt_to_champions,
+            damage_taken=participant.damage_taken,
+            total_minions_killed=participant.total_minions_killed,
+            neutral_minions_killed=participant.neutral_minions_killed,
+            gold_earned=participant.gold_earned,
+            vision_score=participant.vision_score,
+            wards_placed=participant.wards_placed,
+            wards_killed=participant.wards_killed,
+            vision_wards_bought=participant.vision_wards_bought,
+            item0=participant.item0,
+            item1=participant.item1,
+            item2=participant.item2,
+            item3=participant.item3,
+            item4=participant.item4,
+            item5=participant.item5,
+            item6=participant.item6,
+        )
+        session.add(new_participant)
+        session.commit()
+        session.refresh(new_participant)
+
+        primary_style = get_participant_runes("primaryStyle", participant.perks.styles)
+        sub_style = get_participant_runes("subStyle", participant.perks.styles)
+        runes = MatchParticipantRunes(
+            participant_id=new_participant.id,
+            primary_style=primary_style.style,
+            primary_perk0=primary_style.selections[0].perk,
+            primary_perk1=primary_style.selections[1].perk,
+            primary_perk2=primary_style.selections[2].perk,
+            primary_perk3=primary_style.selections[3].perk,
+            secondary_style=sub_style.style,
+            secondary_perk0=sub_style.selections[0].perk,
+            secondary_perk1=sub_style.selections[1].perk,
+            stat_perk_defense=participant.perks.stat_perks.defense,
+            stat_perk_flex=participant.perks.stat_perks.flex,
+            stat_perk_offense=participant.perks.stat_perks.offense
+        )
+        session.add(runes)
 
 
 async def update_matches(
@@ -157,114 +374,15 @@ async def update_matches(
     session: SessionDep,
     riot_api: RiotAPIDep
 ):
+    """Fetch and persist recent matches for a summoner."""
     recent_matches = await riot_api.get_recent_matches(summoner.puuid, summoner.region, match_count)
 
     for match in recent_matches:
         if not get_match_by_match_id(match.metadata.match_id, session):
-            new_match = Match(
-                match_id=match.metadata.match_id,
-                platform=match.info.platform_id,
-                queue_id=match.info.queue_id,
-                game_mode=match.info.game_mode,
-                game_type=match.info.game_type,
-                game_version=match.info.game_version,
-                map_id=match.info.map_id,
-                game_start=match.info.game_creation_datetime,
-                game_end=match.info.game_end_datetime,
-                game_duration=match.info.game_duration,
-            )
-            session.add(new_match)
-            session.commit()
-            session.refresh(new_match)
-
-            # Create match teams
-            team_ids = {
-                100: None,
-                200: None
-            }
-            for team in match.info.teams:
-                new_team = MatchTeam(
-                    match_id=new_match.id,
-                    team_id=team.team_id,
-                    bans=[MatchTeamBans(
-                        champion_id=team_ban.champion_id,
-                        pick_turn=team_ban.pick_turn
-                    ) for team_ban in team.bans],
-                    objectives=[MatchTeamObjectives(
-                        objective=name,
-                        first=objective.first,
-                        kills=objective.kills
-                    ) for name, objective in team.objectives],
-                    win=team.win
-                )
-
-                session.add(new_team)
-                session.commit()
-                session.refresh(new_team)
-                team_ids[team.team_id] = new_team.id
-
-
-
-            # Save participants
-            for participant in match.info.participants:
-                await find_or_create(participant.riot_id_game_name, participant.riot_id_tagline, session, riot_api)
-                new_participant = MatchParticipant(
-                    match_id=new_match.id,
-                    team_id=team_ids[participant.team_id],
-                    summoner_puuid=participant.puuid,
-                    champion_id=participant.champion_id,
-                    champion_name=participant.champion_name,
-                    lane=participant.lane,
-                    kills=participant.kills,
-                    deaths=participant.deaths,
-                    assists=participant.assists,
-                    double_kills=participant.double_kills,
-                    triple_kills=participant.triple_kills,
-                    quadra_kills=participant.quadra_kills,
-                    penta_kills=participant.penta_kills,
-                    largest_multi_kill=participant.largest_multi_kill,
-                    damage_dealt_to_champions=participant.damage_dealt_to_champions,
-                    damage_taken=participant.damage_taken,
-                    total_minions_killed=participant.total_minions_killed,
-                    neutral_minions_killed=participant.neutral_minions_killed,
-                    gold_earned=participant.gold_earned,
-                    vision_score=participant.vision_score,
-                    wards_placed=participant.wards_placed,
-                    wards_killed=participant.wards_killed,
-                    vision_wards_bought=participant.vision_wards_bought,
-                    item0=participant.item0,
-                    item1=participant.item1,
-                    item2=participant.item2,
-                    item3=participant.item3,
-                    item4=participant.item4,
-                    item5=participant.item5,
-                    item6=participant.item6,
-                )
-                session.add(new_participant)
-                session.commit()
-                session.refresh(new_participant)
-
-                # Create participants selected rune page
-                primary_style = get_participant_runes("primaryStyle", participant.perks.styles)
-                sub_style = get_participant_runes("subStyle", participant.perks.styles)
-
-                new_runes = MatchParticipantRunes(
-                    participant_id=new_participant.id,
-                    primary_style=primary_style.style,
-                    primary_perk0=primary_style.selections[0].perk,
-                    primary_perk1=primary_style.selections[1].perk,
-                    primary_perk2=primary_style.selections[2].perk,
-                    primary_perk3=primary_style.selections[3].perk,
-                    secondary_style=sub_style.style,
-                    secondary_perk0=sub_style.selections[0].perk,
-                    secondary_perk1=sub_style.selections[1].perk,
-                    stat_perk_defense=participant.perks.stat_perks.defense,
-                    stat_perk_flex=participant.perks.stat_perks.flex,
-                    stat_perk_offense=participant.perks.stat_perks.offense
-                )
-                session.add(new_runes)
+            new_match, team_ids = _persist_match_and_teams(session, match)
+            await _persist_match_participants(session, riot_api, match, new_match, team_ids)
         else:
-            logger.debug(f"Match {match.metadata.match_id} already exist.")
+            logger.debug("Match %s already exist.", match.metadata.match_id)
     session.commit()
 
 
@@ -274,6 +392,7 @@ async def update(
     riot_api: RiotAPIDep,
     match_count: int
 ):
+    """Refresh summoner data from Riot API if the TTL has expired."""
     if is_summoner_ttl_expired(summoner):
         try:
             summoner_at_riot = await riot_api.get_summoner_by_puuid(summoner.puuid)
@@ -303,6 +422,7 @@ async def find_and_update(
     riot_api: RiotAPIDep,
     match_count: int
 ):
+    """Look up a summoner by PUUID and update their data if stale."""
     summoner = get_summoner_by_puuid(puuid, session)
 
     if not summoner:

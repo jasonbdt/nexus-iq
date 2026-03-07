@@ -5,10 +5,14 @@ Composes domain clients to provide convenient methods for common use cases.
 This is the primary interface for application code to interact with the Riot API.
 """
 
+import asyncio
+from dataclasses import dataclass
 from typing import List, Optional, Self, Union
 
-from . import RiotAPINotFoundError
-from .config import RiotAPIConfig, REGION_TO_PLATFORM
+import aiohttp
+
+from .exceptions import RiotAPINotFoundError, RiotAPIError
+from .config import RiotAPIConfig
 from .models import RiotError, SummonerProfile, SummonerLeagueInfo, Match  # , Match, MatchTimeline
 from .clients.account_client import AccountClient
 from .clients.summoner_client import SummonerClient
@@ -18,6 +22,16 @@ from ..logging import get_logger
 
 
 logger = get_logger(__name__)
+
+
+@dataclass
+class FacadeClients:
+    """Optional client overrides for the Riot API facade (used for testing)."""
+
+    account_client: Optional[AccountClient] = None
+    summoner_client: Optional[SummonerClient] = None
+    league_client: Optional[LeagueClient] = None
+    match_client: Optional[MatchClient] = None
 
 
 class RiotAPIFacade:
@@ -37,26 +51,21 @@ class RiotAPIFacade:
     def __init__(
         self: Self,
         config: RiotAPIConfig,
-        account_client: Optional[AccountClient] = None,
-        summoner_client: Optional[SummonerClient] = None,
-        league_client: Optional[LeagueClient] = None,
-        match_client: Optional[MatchClient] = None
+        clients: Optional[FacadeClients] = None,
     ):
         """
         Initialize the facade with configuration and optional client overrides.
 
         Args:
             config: API configuration.
-            account_client: Optional pre-configured account client (for testing).
-            summoner_client: Optional pre-configured summoner client (for testing).
-            league_client: Optional pre-configured league client (for testing).
-            match_client: Optional pre-configured match client (for testing).
+            clients: Optional pre-configured clients (for testing).
         """
         self._config = config
-        self._account_client = account_client or AccountClient(config)
-        self._summoner_client = summoner_client or SummonerClient(config)
-        self._league_client = league_client or LeagueClient(config)
-        self._match_client = match_client or MatchClient(config)
+        c = clients or FacadeClients()
+        self._account_client = c.account_client or AccountClient(config)
+        self._summoner_client = c.summoner_client or SummonerClient(config)
+        self._league_client = c.league_client or LeagueClient(config)
+        self._match_client = c.match_client or MatchClient(config)
 
         logger.info("RiotAPIFacade initialized successfully")
 
@@ -86,13 +95,13 @@ class RiotAPIFacade:
             RiotAPINotFoundError: If summoner does not exist.
             RiotAPIError: For other API errors.
         """
-        logger.debug(f"Getting summoner: {player_name}#{tag_line}")
+        logger.debug("Getting summoner: %s#%s", player_name, tag_line)
 
         # Step 1: Resolve Riot ID to account info (includes PUUID)
         try:
             account = await self._account_client.get_by_riot_id(player_name, tag_line)
-        except RiotAPINotFoundError:
-            raise RiotAPINotFoundError(message="Summoner not found")
+        except RiotAPINotFoundError as exc:
+            raise RiotAPINotFoundError(message="Summoner not found") from exc
 
         # Step 2: Get region for LoL
         region = await self._account_client.get_active_region("lol", account.puuid)
@@ -130,7 +139,7 @@ class RiotAPIFacade:
         Returns:
             Summoner profile or None if not found.
         """
-        logger.debug(f"Getting summoner by PUUID: {puuid[:8]}...")
+        logger.debug("Getting summoner by PUUID: %s...", puuid[:8])
 
         try:
             # Get account info to get name/tag
@@ -149,15 +158,14 @@ class RiotAPIFacade:
                 revision_date=summoner.revision_datetime,
                 leagues=leagues
             )
-        except Exception as e:
-            logger.warning(f"Failed to get summoner by PUUID: {e}")
+        except (RiotAPIError, aiohttp.ClientError, ValueError) as exc:
+            logger.warning("Failed to get summoner by PUUID: %s", exc)
             return None
 
     # =========================================================================
     # League Methods
     # =========================================================================
 
-    # TODO: Determine if this method is really needed
     async def get_summoner_leagues(
         self: Self,
         region: str,
@@ -173,7 +181,7 @@ class RiotAPIFacade:
         Returns:
             List of processed league entries (one per queue type).
         """
-        logger.debug(f"Getting leagues for PUUID: {puuid[:8]}... in region: {region}")
+        logger.debug("Getting leagues for PUUID: %s... in region: %s", puuid[:8], region)
 
         entries = await self._league_client.get_entries_by_puuid_with_region(puuid, region)
 
@@ -212,18 +220,22 @@ class RiotAPIFacade:
         Returns:
             List of full match data objects.
         """
-        logger.debug(f"Getting {count} recent matches for PUUID: {puuid[:8]}...")
+        logger.debug("Getting %s recent matches for PUUID: %s...", count, puuid[:8])
 
-        match_ids = await self._match_client.get_match_ids_by_puuid_with_region(puuid, region, count)
+        match_ids = await self._match_client.get_match_ids_by_puuid_with_region(
+            puuid, region, count
+        )
 
-        # Get full match data for each matchId
+        # Get full match data for each matchId, with short delays to respect rate limits
         matches = []
-        for match_id in match_ids:
+        for i, match_id in enumerate(match_ids):
+            if i > 0:
+                await asyncio.sleep(0.25)  # 20 req/sec per routing; matches go to europe
             try:
                 match = await self._match_client.get_match_with_region(match_id, region)
                 matches.append(match)
-            except Exception as e:
-                logger.warning(f"Failed to fetch match {match_id}: {e}")
+            except (RiotAPIError, aiohttp.ClientError, ValueError) as exc:
+                logger.warning("Failed to fetch match %s: %s", match_id, exc)
                 continue
 
         return matches

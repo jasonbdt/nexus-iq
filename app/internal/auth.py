@@ -1,3 +1,5 @@
+"""Authentication utilities: JWT handling, password hashing, and user resolution."""
+
 from typing import Annotated
 from datetime import datetime, timedelta, timezone
 
@@ -26,26 +28,41 @@ password_hash = PasswordHash.recommended()
 
 
 class Token(BaseModel):
+    """OAuth2 access token response model."""
+
     access_token: str
     token_type: str
 
+    def to_response(self) -> dict:
+        """Return the token as a dict for the API response."""
+        return {"access_token": self.access_token, "token_type": self.token_type}
+
 
 class TokenData(BaseModel):
-    emailAddress: str | None
+    """Decoded JWT payload data (subject email and role)."""
+
+    email_address: str | None
     role: UserRole | None = None
+
+    def is_authenticated(self) -> bool:
+        """Return True if the token contains a valid subject."""
+        return self.email_address is not None
 
 
 def verify_password(plain_password: str, hashed_password: str):
+    """Verify a plain-text password against a hashed password."""
     return password_hash.verify(plain_password, hashed_password)
 
 
 def get_password_hash(password: str):
+    """Hash a plain-text password for storage."""
     return password_hash.hash(password)
 
 
-def authenticate_user(emailAddress: str, password: str, session: SessionDep):
+def authenticate_user(email_address: str, password: str, session: SessionDep):
+    """Authenticate a user by email and password. Returns User or False."""
     try:
-        user = session.exec(select(User).where(User.emailAddress == emailAddress)).one()
+        user = session.exec(select(User).where(User.emailAddress == email_address)).one()
 
         if not user:
             return False
@@ -57,6 +74,7 @@ def authenticate_user(emailAddress: str, password: str, session: SessionDep):
 
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None):
+    """Create a JWT access token from the given payload."""
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
@@ -73,6 +91,7 @@ async def get_current_user(
     token: Annotated[str, Depends(oauth2_scheme)],
     session: SessionDep
 ):
+    """Resolve the current user from the Bearer token. Raises 401 if invalid."""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -81,19 +100,19 @@ async def get_current_user(
 
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        emailAddress = payload.get("sub")
-        if emailAddress is None:
+        email_address = payload.get("sub")
+        if email_address is None:
             raise credentials_exception
 
         token_data = TokenData(
-            emailAddress=emailAddress,
+            email_address=email_address,
             role=payload.get("role"),
         )
-    except InvalidTokenError:
-        raise credentials_exception
+    except InvalidTokenError as exc:
+        raise credentials_exception from exc
 
     user = session.exec(
-        select(User).where(User.emailAddress == token_data.emailAddress)
+        select(User).where(User.emailAddress == token_data.email_address)
     ).one()
 
     if user is None:
@@ -105,6 +124,7 @@ async def get_current_user(
 async def get_current_active_user(
     current_user: Annotated[User, Depends(get_current_user)]
 ):
+    """Ensure the current user is active. Raises 400 if inactive."""
     if not current_user.is_active:
         raise HTTPException(status_code=400, detail="Inactive User")
 
@@ -115,7 +135,10 @@ async def get_current_user_optional(
     token: Annotated[str | None, Depends(oauth2_scheme_optional)],
     session: SessionDep,
 ):
-    """Returns the current user if authenticated, else None. Does not raise on missing/invalid token."""
+    """Return the current user if authenticated, else None.
+
+    Does not raise on missing or invalid token.
+    """
     if not token:
         return None
     try:
@@ -137,7 +160,9 @@ def require_role(*roles: UserRole):
     Usage::
 
         @router.get("/admin-only")
-        def admin_endpoint(user: Annotated[User, Depends(require_role(UserRole.administrator))]):
+        def admin_endpoint(
+            user: Annotated[User, Depends(require_role(UserRole.ADMINISTRATOR))],
+        ):
             ...
     """
     async def _check(

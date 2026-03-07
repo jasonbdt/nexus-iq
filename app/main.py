@@ -1,3 +1,5 @@
+"""FastAPI application factory, lifespan, middleware, and top-level routes."""
+
 import os
 import logging
 from pathlib import Path
@@ -18,7 +20,8 @@ from .routers import auth, coach, matches, rag, summoners, users
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(_app: FastAPI):
+    """Initialise and tear down application resources around the request lifecycle."""
     log_level = logging.DEBUG if APP_ENV == "dev" else logging.INFO
 
     timeout = aiohttp.ClientTimeout(total=10)
@@ -70,6 +73,7 @@ app.add_middleware(
 
 @app.get("/")
 def index():
+    """Return a simple health-check response."""
     return {
         "status": 200,
         "message": "It work's!"

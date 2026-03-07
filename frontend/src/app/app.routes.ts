@@ -14,6 +14,11 @@ export const routes: Routes = [
     canActivate: [authGuard],
   },
   {
+    path: 'match/:region/:matchId',
+    loadComponent: () =>
+      import('./features/match-details/match-details').then((m) => m.MatchDetailsComponent),
+  },
+  {
     path: 'player/:gameName/:tagLine',
     loadComponent: () =>
       import('./features/player-details/player-details.component').then(

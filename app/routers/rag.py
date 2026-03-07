@@ -1,3 +1,5 @@
+"""RAG endpoints for patch-notes ingestion, querying, and streaming."""
+
 import json
 
 from fastapi.routing import APIRouter
@@ -5,11 +7,16 @@ from fastapi.responses import StreamingResponse
 from starlette.responses import JSONResponse
 
 from ..internal.controllers import patches as PatchNotesController
-from ..internal.db import SessionDep
 from ..internal.logging import get_logger
-from ..internal.services.embeddings import embed_text, embed_texts
-from ..internal.services.llm import generate_response, stream_response, determine_patch_versions, extract_keywords
-from ..internal.services.vector_store import upsert_vectors, search_similar
+from ..internal.services.embeddings import embed_texts
+from ..internal.services.llm import (
+    generate_response,
+    stream_response,
+    determine_patch_versions,
+    extract_keywords,
+)
+from ..internal.services.rag import build_rag_context
+from ..internal.services.vector_store import upsert_vectors
 
 router = APIRouter(
     tags=["RAG"]
@@ -27,6 +34,7 @@ async def list_patches():
 
 @router.post("/ingest/{patch_version}")
 async def index(patch_version: str):
+    """Fetch patch notes, embed chunks, and upsert into the vector store."""
     chunks = await PatchNotesController.parse_patch_notes(patch_version)
 
     if not chunks:
@@ -38,7 +46,10 @@ async def index(patch_version: str):
     try:
         patch_version_float = float(patch_version)
     except ValueError:
-        return JSONResponse(content={"message": f"Invalid patch version: {patch_version}"}, status_code=422)
+        return JSONResponse(
+            content={"message": f"Invalid patch version: {patch_version}"},
+            status_code=422,
+        )
 
     texts = [chunk["text"] for chunk in chunks]
     metadata = [{
@@ -56,17 +67,10 @@ async def index(patch_version: str):
     }, status_code=200)
 
 async def _build_context(question: str, top_k: int = 15) -> str:
+    """Build RAG context by embedding the question and searching for similar chunks."""
     patch_versions = determine_patch_versions(question)
     keywords = extract_keywords(question)
-    query_embedding = await embed_text(question)
-    results = await search_similar(
-        query_embedding, patch_versions, top_k=top_k, keywords=keywords or None
-    )
-    parts = [
-        f"[Patch {r['patch_version']}]\n{r['text']}"
-        for r in results
-    ]
-    return "\n\n---\n\n".join(parts)
+    return await build_rag_context(question, patch_versions, keywords, top_k=top_k)
 
 
 @router.post("/query")
