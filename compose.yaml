@@ -35,6 +35,9 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  redis:
+    image: redis:8.6.1
+
   qdrant:
     image: qdrant/qdrant:latest
     ports:
