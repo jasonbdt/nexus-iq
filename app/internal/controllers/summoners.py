@@ -1,5 +1,6 @@
 """Controller for summoner lookup, creation, and update logic."""
 
+import asyncio
 from datetime import datetime, timezone, timedelta
 from sqlmodel import select
 
@@ -118,6 +119,79 @@ async def find_or_create(
 
     return summoner
 
+
+async def find_or_create_by_puuid(
+    puuid: str,
+    session: SessionDep,
+    riot_api: RiotAPIDep,
+    fallback_game_name: str,
+    fallback_tag_line: str,
+    fallback_region: str,
+) -> Summoner | None:
+    """
+    Return existing summoner or create one by PUUID.
+
+    Uses PUUID for lookup/creation so it works when a player has changed their
+    Riot ID (gameName+tagLine) since the match was played. Falls back to a
+    minimal summoner record if the Riot API lookup fails (e.g. deleted account).
+    """
+    summoner = get_summoner_by_puuid(puuid, session)
+    if summoner:
+        return summoner
+
+    profile = await riot_api.get_summoner_by_puuid(puuid)
+    if profile:
+        summoner_in_db = get_summoner_by_puuid(profile.puuid, session)
+        if not summoner_in_db:
+            summoner_leagues = [
+                SummonerLeagues(
+                    league_id=league.league_id,
+                    queue_type=league.queue_type,
+                    tier=league.tier,
+                    rank=league.rank,
+                    wins=league.wins,
+                    losses=league.losses,
+                    league_points=league.league_points,
+                )
+                for league in profile.leagues
+            ]
+            new_summoner = Summoner(
+                puuid=profile.puuid,
+                region=profile.region,
+                summoner_name=profile.summoner_name,
+                tag_line=profile.tag_line,
+                summoner_level=profile.summoner_level,
+                profile_icon=profile.profile_icon,
+                revision_date=profile.revision_date,
+                leagues=summoner_leagues,
+            )
+            session.add(new_summoner)
+            session.commit()
+            session.refresh(new_summoner)
+            return new_summoner
+        return summoner_in_db
+
+    # Fallback: Riot API failed (e.g. renamed/deleted account). Create minimal
+    # summoner to satisfy FK constraint for match participants.
+    logger.warning(
+        "Could not resolve summoner by PUUID %s... (Riot API failed). "
+        "Creating stub with match-time name %s#%s",
+        puuid[:8], fallback_game_name, fallback_tag_line,
+    )
+    stub = Summoner(
+        puuid=puuid,
+        region=fallback_region,
+        summoner_name=fallback_game_name,
+        tag_line=fallback_tag_line,
+        summoner_level=0,
+        profile_icon=0,
+        revision_date=datetime.now(timezone.utc),
+    )
+    session.add(stub)
+    session.commit()
+    session.refresh(stub)
+    return stub
+
 def update_leagues(
     summoner: Summoner,
     leagues: list[LeagueEntry],
@@ -220,10 +294,20 @@ async def update_matches(
 
 
 
-            # Save participants
-            for participant in match.info.participants:
-                await find_or_create(
-                    participant.riot_id_game_name, participant.riot_id_tagline, session, riot_api
+            # Save participants - use PUUID so we resolve correctly when a player
+            # has changed their Riot ID (gameName+tagLine) since the match.
+            # Short delay between lookups to stay under Riot API rate limits.
+            fallback_region = match.info.platform_id.lower()
+            for i, participant in enumerate(match.info.participants):
+                if i > 0:
+                    await asyncio.sleep(2.5)  # 2 req/europe + 2 req/euw1 per participant; 100/2min per routing
+                await find_or_create_by_puuid(
+                    participant.puuid,
+                    session,
+                    riot_api,
+                    fallback_game_name=participant.riot_id_game_name,
+                    fallback_tag_line=participant.riot_id_tagline,
+                    fallback_region=fallback_region,
                 )
                 new_participant = MatchParticipant(
                     match_id=new_match.id,

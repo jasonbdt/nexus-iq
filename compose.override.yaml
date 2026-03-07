@@ -2,6 +2,10 @@ services:
   backend:
     volumes:
       - ./app:/usr/src/app
+  
+  database:
+    ports:
+      - 5432:5432
 
   pgadmin:
     depends_on:

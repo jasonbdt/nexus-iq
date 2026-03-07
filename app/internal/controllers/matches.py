@@ -10,6 +10,12 @@ from ..riot_api import RiotAPIDep, RiotPlatform, REGION_TO_PLATFORM
 logger = get_logger(__name__)
 
 
+def get_match_by_id(match_id: str, session: SessionDep) -> Match | None:
+    """Return a single match by its Riot match ID, or None if not found."""
+    statement = select(Match).where(Match.match_id == match_id)
+    return session.exec(statement).first()
+
+
 def get_matches(puuid: str, _platform: RiotPlatform, match_count: int, session: SessionDep):
     """Return stored matches for a player from the database."""
     statement = select(Match).join(MatchParticipant).join(MatchTeam).where(

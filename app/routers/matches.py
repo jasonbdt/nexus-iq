@@ -1,5 +1,6 @@
 """Match history endpoints for League of Legends."""
 
+from fastapi import HTTPException
 from fastapi.routing import APIRouter
 
 from ..internal.controllers import matches as MatchesController
@@ -20,6 +21,19 @@ logger = get_logger(__name__)
 def index():
     """Health check for the matches API."""
     return { "message": "It works" }
+
+
+@router.get("/{region}/by-id/{match_id}", response_model=MatchesRead)
+def get_match_by_id(
+    region: str,
+    match_id: str,
+    session: SessionDep
+) -> MatchesRead:
+    """Return a single match by region and Riot match ID."""
+    match = MatchesController.get_match_by_id(match_id, session)
+    if match is None:
+        raise HTTPException(status_code=404, detail="Match not found")
+    return match
 
 
 @router.get("/{region}/by-puuid/{puuid}")

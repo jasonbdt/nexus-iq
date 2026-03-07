@@ -5,6 +5,7 @@ Composes domain clients to provide convenient methods for common use cases.
 This is the primary interface for application code to interact with the Riot API.
 """
 
+import asyncio
 from dataclasses import dataclass
 from typing import List, Optional, Self, Union
 
@@ -225,9 +226,11 @@ class RiotAPIFacade:
             puuid, region, count
         )
 
-        # Get full match data for each matchId
+        # Get full match data for each matchId, with short delays to respect rate limits
         matches = []
-        for match_id in match_ids:
+        for i, match_id in enumerate(match_ids):
+            if i > 0:
+                await asyncio.sleep(0.25)  # 20 req/sec per routing; matches go to europe
             try:
                 match = await self._match_client.get_match_with_region(match_id, region)
                 matches.append(match)
