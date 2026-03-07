@@ -1,0 +1,60 @@
+@let p = participant();
+@let isWin = won();
+@let m = match();
+@let kp = killParticipation();
+@let items = purchasedItems();
+@let others = otherParticipants();
+<div class="match-result-bar" [class.win-bar]="isWin" [class.loss-bar]="!isWin"></div>
+<div class="match-champion">
+  <img
+    [src]="getChampionIconUrl(p?.champion_name ?? 'Jinx')"
+    [alt]="p?.champion_name"
+    class="champ-icon"
+    (error)="$any($event.target).src = getChampionIconUrl('Jinx')"
+  />
+</div>
+<div class="match-info">
+  <p class="match-champ-name">{{ p?.champion_name }}</p>
+  <p class="match-mode">{{ m.game_mode }} · {{ m.game_start | date: 'MMM d' }}</p>
+</div>
+<div class="match-kda">
+  <p class="kda-score">
+    <span class="kda-k">{{ p?.kills }}</span>
+    /
+    <span class="kda-d">{{ p?.deaths }}</span>
+    /
+    <span class="kda-a">{{ p?.assists }}</span>
+  </p>
+  <p class="kda-ratio">{{ p?.kda?.toFixed(2) }} KDA · {{ kp }}% KP</p>
+</div>
+<div class="match-extra">
+  <p class="match-cs">{{ p?.total_cs }} CS</p>
+  <p class="match-gold">{{ p?.gold_earned?.toLocaleString() }}g</p>
+</div>
+<div class="match-items">
+  @for (itemId of items; track itemId) {
+    <img
+      [src]="itemImageUrl(itemId)"
+      [alt]="'Item ' + itemId"
+      class="item-icon"
+      (error)="$any($event.target).style.display = 'none'"
+    />
+  }
+</div>
+<div class="match-others">
+  @for (other of others; track other.profile.riot_id) {
+    <img
+      [src]="getChampionIconUrl(other.champion_name)"
+      [alt]="other.champion_name + ' - ' + other.profile.riot_id"
+      class="champ-icon-sm"
+      [title]="other.profile.riot_id"
+      (error)="$any($event.target).src = getChampionIconUrl('Jinx')"
+    />
+  }
+</div>
+<div class="match-meta">
+  <span class="match-outcome" [class.win-text]="isWin" [class.loss-text]="!isWin">
+    {{ isWin ? 'Victory' : 'Defeat' }}
+  </span>
+  <span class="match-duration">{{ getGameDuration(m) }}</span>
+</div>

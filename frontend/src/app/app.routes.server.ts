@@ -2,6 +2,10 @@ import { RenderMode, ServerRoute } from '@angular/ssr';
 
 export const serverRoutes: ServerRoute[] = [
   {
+    path: 'match/:region/:matchId',
+    renderMode: RenderMode.Client,
+  },
+  {
     path: 'player/:gameName/:tagLine',
     renderMode: RenderMode.Client,
   },
