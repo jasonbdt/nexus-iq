@@ -15,7 +15,7 @@ services:
       - redisinsight:/data
 
   rq-dashboard:
-    image: eoranged/rq-dashboard
+    image: cjlapao/rq-dashboard:latest
     ports:
       - 9181:9181
     environment:
