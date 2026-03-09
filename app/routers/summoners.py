@@ -10,8 +10,10 @@ from fastapi.routing import APIRouter
 from ..internal.auth import get_current_active_user, get_current_user_optional
 from ..internal.controllers import summoners as SummonersController
 from ..internal.db import SessionDep
+from ..internal.jobs import enqueue_summoner_update
 from ..internal.logging import get_logger
 from ..internal.models import SummonerSearch, User
+from ..internal.redis import RedisDep
 from ..internal.riot_api import RiotAPIDep
 
 
@@ -55,6 +57,7 @@ async def get_summoner(
 async def update_summoner(
     current_user: Annotated[User, Depends(get_current_active_user)],
     puuid: str,
+    redis: RedisDep,
     session: SessionDep,
     riot_api: RiotAPIDep,
     match_count: int = 20
@@ -64,6 +67,10 @@ async def update_summoner(
         "User[%s] triggered an update for Summoner with PUUID \"%s\"",
         current_user.id, puuid,
     )
+
+    new_job = enqueue_summoner_update(redis, puuid, match_count)
+
+    return {"message": "Update queued", "job_details": new_job.data}
 
     summoner = await SummonersController.find_and_update(
         puuid, session, riot_api, match_count
