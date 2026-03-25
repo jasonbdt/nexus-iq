@@ -32,8 +32,9 @@ services:
     environment:
       POSTGRES_PASSWORD: geheim2
       POSTGRES_DB: nexus_iq
+      PGDATA: /var/lib/postgresql/18/docker
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql
 
   redis:
     image: redis:8.6.1
