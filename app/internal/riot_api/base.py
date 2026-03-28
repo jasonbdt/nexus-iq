@@ -36,13 +36,14 @@ async def retry_middleware(
     req: ClientRequest,
     handler: ClientHandlerType
 ) -> ClientResponse:
-    """Retry failed HTTP requests up to 3 times before returning the last response."""
-    for _ in range(3):
+    """Retry failed HTTP requests up to 3 times, but never retry 429 (rate limit)."""
+    for attempt in range(3):
         response = await handler(req)
-        if response.ok:
+        if response.ok or response.status == 429:
             return response
 
     return response
+
 
 class RiotAPIBase(ABC):
     """

@@ -201,6 +201,16 @@ class RiotAPIFacade:
     # Match Methods
     # =========================================================================
 
+    async def get_match_by_id(self: Self, match_id: str, region: str):
+        return await self._match_client.get_match_with_region(match_id, region)
+
+
+    async def get_recent_match_ids(self: Self, puuid: str, region: str, count: int = 10):
+        return await self._match_client.get_match_ids_by_puuid_with_region(
+            puuid, region, count
+        )
+
+
     async def get_recent_matches(
         self: Self,
         puuid: str,
