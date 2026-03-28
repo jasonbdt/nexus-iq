@@ -1,6 +1,7 @@
 """Controller for retrieving match data from the database."""
 
 from sqlmodel import select
+from sqlalchemy import desc
 
 from ..db import SessionDep
 from ..logging import get_logger
@@ -20,8 +21,7 @@ def get_matches(puuid: str, _platform: RiotPlatform, match_count: int, session: 
     """Return stored matches for a player from the database."""
     statement = select(Match).join(MatchParticipant).join(MatchTeam).where(
         MatchParticipant.summoner_puuid == puuid,
-        # Match.platform == platform.upper()
-    ).limit(match_count)
+    ).limit(match_count).order_by(desc('game_end'))
 
     results = session.exec(statement)
     matches = []
