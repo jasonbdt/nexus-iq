@@ -10,6 +10,7 @@ from sqlalchemy.sql.functions import now as server_now
 from sqlmodel import Column, Field, Relationship, SQLModel
 from pydantic import BaseModel, computed_field
 
+
 def utc_now() -> datetime:
     """Return the current UTC datetime."""
     return datetime.now(timezone.utc)
@@ -152,7 +153,6 @@ class Summoner(SQLModel, table=True):
     )
 
     leagues: list["SummonerLeagues"] = Relationship(back_populates="summoner")
-    stats: list["MatchParticipant"] = Relationship(back_populates="profile")
     user_links: list["UserSummonerLink"] = Relationship(back_populates="summoner")
 
     @computed_field
@@ -282,9 +282,11 @@ class MatchParticipant(SQLModel, table=True):
 
     summoner_puuid: str = Field(
         nullable=False,
-        index=True,
-        foreign_key="summoners.puuid"
+        index=True
     )
+
+    summoner_name: str = Field(nullable=False)
+    tag_line: str = Field(nullable=False)
 
     champion_id: int = Field(nullable=False)
     champion_name: str = Field(nullable=False)
@@ -293,7 +295,6 @@ class MatchParticipant(SQLModel, table=True):
     kills: int = Field(nullable=False)
     deaths: int = Field(nullable=False)
     assists: int = Field(nullable=False)
-    # kill_participation: float = Field(nullable=False)
 
     double_kills: int = Field(nullable=False)
     triple_kills: int = Field(nullable=False)
@@ -323,7 +324,6 @@ class MatchParticipant(SQLModel, table=True):
 
     runes: list["MatchParticipantRunes"] = Relationship(back_populates="participant")
     match: Match = Relationship(back_populates="participants")
-    profile: Summoner = Relationship(back_populates="stats")
     team: MatchTeam = Relationship(back_populates="participants")
 
     @computed_field
@@ -398,6 +398,9 @@ class MatchParticipantsRead(BaseModel):
 
     champion_id: int
     champion_name: str
+    summoner_name: str
+    summoner_puuid: str
+    tag_line: str
     kills: int
     deaths: int
     assists: int
@@ -418,8 +421,12 @@ class MatchParticipantsRead(BaseModel):
     item5: int
     item6: int
 
-    profile: SummonerMatchRead
     runes: list[MatchParticipantRunesRead]
+
+    @computed_field
+    @property
+    def riot_id(self: Self) -> str:
+        return f"{self.summoner_name}#{self.tag_line}"
 
 
 class MatchTeamBansRead(BaseModel):
@@ -463,7 +470,6 @@ class MatchesRead(BaseModel):
     game_duration: int
 
     teams: list["MatchTeamsRead"]
-    # participants: list["MatchParticipantsRead"]
 
 
 class SummonerLeaguesRead(BaseModel):
@@ -482,7 +488,6 @@ class SummonerLeaguesRead(BaseModel):
 
 class SummonerSearch(BaseModel):
     """Read schema for summoner search results."""
-
     puuid: str
     region: str
     summoner_name: str
