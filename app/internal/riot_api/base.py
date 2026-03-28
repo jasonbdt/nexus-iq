@@ -28,6 +28,7 @@ from .exceptions import (
 from .models import RiotError
 from ..session import get_session
 from ..logging import get_logger
+from ..redis import acquire_riot
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -118,7 +119,7 @@ class RiotAPIBase(ABC):
         """
         url = self._build_url(routing, path)
         self._logger.debug("Requesting: %s", url)
-
+        await acquire_riot(routing.value)
         try:
             response = await self._session.get(url)
         except aiohttp.client_exceptions.ConnectionTimeoutError as exc:
@@ -152,6 +153,7 @@ class RiotAPIBase(ABC):
         url = self._build_url(routing, path)
         self._logger.debug("Requesting list: %s", url)
 
+        await acquire_riot(routing.value)
         try:
             response = await self._session.get(url)
         except aiohttp.client_exceptions.ConnectionTimeoutError as exc:
@@ -191,6 +193,7 @@ class RiotAPIBase(ABC):
         url = self._build_url(routing, path)
         self._logger.debug("Requesting raw list: %s", url)
 
+        await acquire_riot(routing.value)
         try:
             response = await self._session.get(
                 url,
