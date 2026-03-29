@@ -1,4 +1,6 @@
+import json
 import os
+import time
 
 import aiohttp
 from redis import Redis
@@ -30,8 +32,25 @@ async def update_summoner_profile_job(
     with Session(engine) as session:
         await SummonersController.refresh_summoner_profile(puuid, session, riot_api)
         redis_conn.srem(f"nexus_iq:summoner_updates:{puuid}", job.id)
+        redis_conn.publish(f"nexus_iq:summoner_profile:{puuid}", message=json.dumps({
+            "event": "toggleUpdate",
+            "status": "in_progress",
+            "progress": calc_update_progress(puuid, redis_conn)
+        }))
 
 
+def reset_summoner_status(puuid: str, redis_conn: Redis):
+    redis_conn.publish(f"nexus_iq:summoner_profile:{puuid}", message=json.dumps({
+        "event": "toggleUpdate",
+        "status": "finished",
+        "progress": 100.00,
+    }))
+    time.sleep(1)
+    redis_conn.publish(f"nexus_iq:summoner_profile:{puuid}", message=json.dumps({
+        "event": "toggleUpdate",
+        "status": "idle",
+        "progress": 0.00
+    }))
 
 
 async def persist_summoner_match_job(
@@ -54,6 +73,16 @@ async def persist_summoner_match_job(
             )
     finally:
         redis_conn.srem(f"nexus_iq:summoner_updates:{puuid}", job.id)
+        remaining_jobs = int(redis_conn.scard(f"nexus_iq:summoner_updates:{puuid}") or 0)
+
+        if remaining_jobs > 0:
+            redis_conn.publish(f"nexus_iq:summoner_profile:{puuid}", message=json.dumps({
+                "event": "toggleUpdate",
+                "status": "in_progress",
+                "progress": calc_update_progress(puuid, redis_conn)
+            }))
+        else:
+            reset_summoner_status(puuid, redis_conn)
 
 
 async def sync_summoner_matches_job(
@@ -81,6 +110,7 @@ async def sync_summoner_matches_job(
 
         if not new_match_ids:
             redis_conn.srem(f"nexus_iq:summoner_updates:{puuid}", job.id)
+            reset_summoner_status(puuid, redis_conn)
             return None
 
         queue = Queue("default", connection=redis_conn)
@@ -134,3 +164,18 @@ def enqueue_summoner_update(
         redis_conn.incr(f"nexus_iq:summoner_updates:{puuid}:total_jobs")
         redis_conn.sadd(f"nexus_iq:summoner_updates:{puuid}", job_id)
 
+    redis_conn.publish(f"nexus_iq:summoner_profile:{puuid}", message=json.dumps({
+        "event": "toggleUpdate",
+        "status": "queued",
+        "progress": 0.00
+    }))
+
+
+def calc_update_progress(puuid: str, redis_conn: Redis) -> float:
+    remaining_jobs = int(redis_conn.scard(f"nexus_iq:summoner_updates:{puuid}"))
+    total_jobs = int(redis_conn.get(f"nexus_iq:summoner_updates:{puuid}:total_jobs"))
+
+    if not remaining_jobs:
+        redis_conn.delete(f"nexus_iq:summoner_updates:{puuid}:total_jobs")
+
+    return float(f"{(1 - (remaining_jobs / total_jobs)) * 100:.2f}")

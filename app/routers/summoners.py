@@ -15,7 +15,7 @@ from ..internal.controllers import summoners as SummonersController
 from ..internal.db import SessionDep
 from ..internal.jobs import enqueue_summoner_update
 from ..internal.logging import get_logger
-from ..internal.models import SummonerSearch, User
+from ..internal.models import SummonerSearch, User, SummonerLeaguesRead
 from ..internal.redis import RedisDep
 from ..internal.riot_api import RiotAPIDep
 
@@ -33,7 +33,8 @@ async def get_summoner(
     tag_line: str,
     game_name: str,
     session: SessionDep,
-    riot_api: RiotAPIDep
+    riot_api: RiotAPIDep,
+    redis: RedisDep
 ):
     """Look up a summoner by game name and tag line."""
     if current_user:
@@ -54,7 +55,15 @@ async def get_summoner(
             status_code=status.HTTP_404_NOT_FOUND
         )
 
-    return summoner
+    remaining_jobs = int(await redis.scard(f"nexus_iq:summoner_updates:{summoner.puuid}"))
+    total_jobs = int(await redis.get(f"nexus_iq:summoner_updates:{summoner.puuid}:total_jobs") or 0)
+
+    return SummonerSearch(
+        status="idle" if not remaining_jobs else "updating",
+        update_progress=None if not remaining_jobs else float(f"{(1 - (remaining_jobs / total_jobs)) * 100:.2f}"),
+        leagues=[SummonerLeaguesRead(**league.model_dump()) for league in summoner.leagues],
+        **summoner.model_dump()
+    )
 
 @router.patch("/update/{puuid}", response_model=SummonerSearch)
 async def update_summoner(

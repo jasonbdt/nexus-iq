@@ -499,6 +499,8 @@ class SummonerSearch(BaseModel):
     revision_date: datetime
     created_at: datetime
     updated_at: datetime
+    status: str
+    update_progress: Optional[float]
 
 
 class UserSignUpRequest(BaseModel):
