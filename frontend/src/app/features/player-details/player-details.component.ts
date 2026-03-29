@@ -14,6 +14,7 @@ import { LoginModalComponent } from '../../shared/components/login-modal/login-m
 import { RegisterModalComponent } from '../../shared/components/register-modal/register-modal.component';
 import { MatchOverviewComponent } from '../../shared/components/match-overview/match-overview';
 import { SummonerSearch, MatchesRead, LeagueEntry, Participant } from '../../core/models';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 @Component({
   selector: 'app-player-details',
@@ -24,6 +25,7 @@ import { SummonerSearch, MatchesRead, LeagueEntry, Participant } from '../../cor
     MatButtonModule,
     MatIconModule,
     MatProgressSpinnerModule,
+    MatSnackBarModule,
     NavbarComponent,
     AiChatWidgetComponent,
   ],
@@ -36,6 +38,7 @@ export class PlayerDetailsComponent implements OnInit {
   private readonly matchService = inject(MatchService);
   private readonly ddragon = inject(DdragonService);
   private readonly dialog = inject(MatDialog);
+  private readonly snackbar = inject(MatSnackBar);
 
   readonly summoner = signal<SummonerSearch | null>(null);
   readonly matches = signal<MatchesRead[]>([]);
@@ -93,6 +96,7 @@ export class PlayerDetailsComponent implements OnInit {
   private loadSummoner(): void {
     this.loadingSummoner.set(true);
     this.error.set('');
+
     this.summonerService.search(this.gameName(), this.tagLine()).subscribe({
       next: (data) => {
         this.summoner.set(data);
