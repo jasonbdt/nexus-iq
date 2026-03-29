@@ -116,7 +116,7 @@ async def wait_acquire(
 
     while time.monotonic() < deadline:
         allowed, remaining, retry_after = await try_acquire(
-            redis, routing, max_tokens, refill_per_second
+            routing, max_tokens, refill_per_second
         )
 
         if allowed:
