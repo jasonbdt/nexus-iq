@@ -1,8 +1,8 @@
 """Controller for summoner lookup, creation, and update logic."""
 
-import asyncio
-from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
+from typing import Optional
+
 from sqlmodel import select
 
 from ...dependencies import SUMMONER_TTL_MINUTES
@@ -41,6 +41,25 @@ def get_match_by_match_id(
     )
 
     return session.exec(statement).first()
+
+
+async def persist_summoner_match(
+    region: str,
+    match_id: str,
+    session: SessionDep,
+    riot_api: RiotAPIDep
+) -> None:
+    """Fetch and persist one match by ID. No-op if the match already exists."""
+    if get_match_by_match_id(match_id, session):
+        return
+
+    match_data = await riot_api.get_match_by_id(match_id, region)
+    if not match_data:
+        return
+
+    new_match, team_ids = _persist_match_and_teams(session, match_data)
+    await _persist_match_participants(session, riot_api, match_data, new_match, team_ids)
+    session.commit()
 
 
 def get_summoner_by_puuid(puuid: str, session: SessionDep) -> Summoner:
@@ -348,6 +367,37 @@ async def update_matches(
         else:
             logger.debug("Match %s already exist.", match.metadata.match_id)
     session.commit()
+
+
+async def refresh_summoner_profile(
+    puuid: str,
+    session: SessionDep,
+    riot_api: RiotAPIDep
+) -> Optional[Summoner]:
+    """Refresh summoner profile and leagues only. Returns summoner or None."""
+    summoner = get_summoner_by_puuid(puuid, session)
+
+    if not summoner:
+        return None
+
+    if is_summoner_ttl_expired(summoner):
+        try:
+            _summoner = await riot_api.get_summoner_by_puuid(summoner.puuid)
+        except RiotAPINotFoundError:
+            return None
+
+        summoner.summoner_name = _summoner.summoner_name
+        summoner.tag_line = _summoner.tag_line
+        summoner.region = _summoner.region
+        summoner.summoner_level = _summoner.summoner_level
+        summoner.profile_icon = _summoner.profile_icon
+
+        update_leagues(summoner, _summoner.leagues, session)
+        summoner.updated_at = datetime.now(tz=timezone.utc)
+
+        session.add(summoner)
+        session.commit()
+    return None
 
 
 async def update(

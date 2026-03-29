@@ -60,9 +60,6 @@ async def get_summoner(
 async def update_summoner(
     current_user: Annotated[User, Depends(get_current_active_user)],
     puuid: str,
-    redis: RedisDep,
-    session: SessionDep,
-    riot_api: RiotAPIDep,
     match_count: int = 100
 ):
     """Update summoner data (ranked stats, match history) by PUUID."""
@@ -70,6 +67,13 @@ async def update_summoner(
         "User[%s] triggered an update for Summoner with PUUID \"%s\"",
         current_user.id, puuid,
     )
+    enqueue_summoner_update(puuid, match_count)
+
+    return JSONResponse({
+        "message": "Update queued"
+    }, status_code=status.HTTP_200_OK)
+
+
 def parse_pubsub_message(
     raw_data: bytes | str | dict
 ) -> tuple[str, dict | str]:
