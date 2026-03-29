@@ -1,0 +1,64 @@
+:host {
+  display: inline-flex;
+  vertical-align: middle;
+}
+
+.refresh-button__wrapper {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--mat-button-outlined-container-shape, var(--mat-sys-corner-full));
+}
+
+.refresh-button__surface.mat-mdc-outlined-button {
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+  min-width: unset;
+}
+
+.refresh-button__progress {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 0;
+  max-width: 100%;
+  pointer-events: none;
+  z-index: 0;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--mat-sys-color-primary, #9ecaff) 22%, transparent);
+  transition: width 400ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.refresh-button__label-slot {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  min-width: 10.5rem;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+}
+
+.refresh-button__label-row {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.refresh-button__icon {
+  margin: 0;
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
+}
+
+.refresh-button__spinner {
+  display: inline-block;
+  flex-shrink: 0;
+  --mdc-circular-progress-active-indicator-color: var(
+    --mat-sys-color-primary,
+    #9ecaff
+  );
+}
