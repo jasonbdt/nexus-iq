@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { SummonerSearch } from '../models';
+import { SummonerSearch, SummonerUpdateQueued } from '../models';
 
 const API_BASE = '/api/v1';
 
@@ -15,8 +15,8 @@ export class SummonerService {
     return this.http.get<SummonerSearch>(`${API_BASE}/search/${encodedTag}/${encodedName}`);
   }
 
-  update(puuid: string, matchCount = 20): Observable<SummonerSearch> {
+  update(puuid: string, matchCount = 100): Observable<SummonerUpdateQueued> {
     const params = new HttpParams().set('match_count', matchCount);
-    return this.http.patch<SummonerSearch>(`${API_BASE}/update/${puuid}`, null, { params });
+    return this.http.patch<SummonerUpdateQueued>(`${API_BASE}/update/${puuid}`, null, { params });
   }
 }

@@ -42,12 +42,12 @@
   }
 </div>
 <div class="match-others">
-  @for (other of others; track other.profile.riot_id) {
+  @for (other of others; track other.riot_id) {
     <img
       [src]="getChampionIconUrl(other.champion_name)"
-      [alt]="other.champion_name + ' - ' + other.profile.riot_id"
+      [alt]="other.champion_name + ' - ' + other.riot_id"
       class="champ-icon-sm"
-      [title]="other.profile.riot_id"
+      [title]="other.riot_id"
       (error)="$any($event.target).src = getChampionIconUrl('Jinx')"
     />
   }

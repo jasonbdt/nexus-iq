@@ -37,8 +37,15 @@ $nexusiq-primary: mat.define-theme(
 );
 
 html {
-  @include mat.all-component-themes($nexusiq-primary);
-  @include mat.all-component-typographies($nexusiq-primary);
+  @include mat.theme((
+    color: (
+      primary: mat.$azure-palette,
+      tertiary: mat.$orange-palette,
+      theme-type: dark
+    ),
+    typography: 'Inter, sans-serif',
+    density: 0
+  ))
 }
 
 // ─── Global Base Styles ─────────────────────────────────────────────────────
