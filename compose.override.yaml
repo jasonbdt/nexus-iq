@@ -7,6 +7,22 @@ services:
     ports:
       - 5432:5432
 
+  redis-insight:
+    image: redis/redisinsight:latest
+    ports:
+      - 5540:5540
+    volumes:
+      - redisinsight:/data
+
+  rq-dashboard:
+    image: cjlapao/rq-dashboard:latest
+    ports:
+      - 9181:9181
+    environment:
+      - RQ_DASHBOARD_REDIS_URL=redis://nexus-iq-redis-1:6379/0
+    depends_on:
+      - redis
+
   pgadmin:
     depends_on:
       database:
@@ -22,3 +38,4 @@ services:
 
 volumes:
   pgadmindata:
+  redisinsight:

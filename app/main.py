@@ -14,6 +14,7 @@ from fastapi.responses import FileResponse
 from .internal.db import create_db_and_tables
 from .internal.logging import configure_logging
 from .dependencies import APP_ENV
+from .internal.redis import close_redis, init_redis, RedisDep
 from .internal.services.vector_store import ensure_collection
 from .internal.session import init_session, close_session
 from .routers import auth, coach, matches, rag, summoners, users
@@ -29,6 +30,7 @@ async def lifespan(_app: FastAPI):
     connector = aiohttp.TCPConnector(limit=100, ttl_dns_cache=300)
 
     await init_session(timeout=timeout, connector=connector, headers=headers)
+    await init_redis()
     await ensure_collection()
 
     configure_logging(log_level)
@@ -37,6 +39,7 @@ async def lifespan(_app: FastAPI):
     try:
         yield
     finally:
+        await close_redis()
         await close_session()
 
 app = FastAPI(
@@ -78,6 +81,12 @@ def index():
         "status": 200,
         "message": "It work's!"
     }
+
+
+@app.get("/health/redis")
+def redis_health(redis: RedisDep):
+    """Health check for Redis Service."""
+    return {"status": "ok" if redis.ping() else "not ok"}
 
 
 @app.get("/cdn/{file_path:path}")

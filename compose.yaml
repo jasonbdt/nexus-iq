@@ -32,8 +32,12 @@ services:
     environment:
       POSTGRES_PASSWORD: geheim2
       POSTGRES_DB: nexus_iq
+      PGDATA: /var/lib/postgresql/18/docker
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql
+
+  redis:
+    image: redis:8.6.1
 
   qdrant:
     image: qdrant/qdrant:latest
@@ -42,6 +46,20 @@ services:
       - "6334:6334"
     volumes:
       - qdrant_storage:/qdrant/storage
+
+  worker:
+    build:
+      context: .
+      dockerfile: ./worker/Dockerfile
+    env_file: ".env"
+    environment:
+      REDIS_HOST: redis
+    image: nexus-iq/rq-worker
+    command: rq worker default --with-scheduler
+    deploy:
+      replicas: 3
+    depends_on:
+      - redis
 
 volumes:
   pgdata:

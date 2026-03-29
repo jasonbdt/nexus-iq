@@ -1,4 +1,4 @@
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, DestroyRef, effect, inject, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatButtonModule } from '@angular/material/button';
@@ -14,6 +14,9 @@ import { LoginModalComponent } from '../../shared/components/login-modal/login-m
 import { RegisterModalComponent } from '../../shared/components/register-modal/register-modal.component';
 import { MatchOverviewComponent } from '../../shared/components/match-overview/match-overview';
 import { SummonerSearch, MatchesRead, LeagueEntry, Participant } from '../../core/models';
+import { RefreshButtonComponent } from '../../shared/components/refresh-button/refresh-button.component';
+import { SubscribeService } from '../../core/services/subscribe.service';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 @Component({
   selector: 'app-player-details',
@@ -24,23 +27,35 @@ import { SummonerSearch, MatchesRead, LeagueEntry, Participant } from '../../cor
     MatButtonModule,
     MatIconModule,
     MatProgressSpinnerModule,
+    MatSnackBarModule,
     NavbarComponent,
     AiChatWidgetComponent,
+    RefreshButtonComponent,
   ],
   templateUrl: './player-details.component.html',
   styleUrl: './player-details.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class PlayerDetailsComponent implements OnInit {
+  readonly stream = inject(SubscribeService);
+
   private readonly route = inject(ActivatedRoute);
   private readonly summonerService = inject(SummonerService);
   private readonly matchService = inject(MatchService);
   private readonly ddragon = inject(DdragonService);
   private readonly dialog = inject(MatDialog);
+  private readonly snackbar = inject(MatSnackBar);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly summoner = signal<SummonerSearch | null>(null);
   readonly matches = signal<MatchesRead[]>([]);
   readonly loadingSummoner = signal(true);
   readonly loadingMatches = signal(false);
+
+  readonly summonerStatus = signal<string>("idle");
+  readonly updateProgress = signal<number|undefined>(undefined);
+  readonly updateInProgress = signal<{ [key: string]: unknown }>({});
+
   readonly error = signal('');
 
   readonly gameName = signal('');
@@ -82,22 +97,61 @@ export class PlayerDetailsComponent implements OnInit {
     return (ms.filter((m) => this.didWin(m)).length / ms.length * 100).toFixed(0);
   });
 
+  constructor() {
+    effect((): void => {
+      const summonerStatus = this.summonerStatus();
+
+      if (summonerStatus) {
+        if (summonerStatus === "queued") {
+          this.snackbar.open("Summoner update has been queued.", "Dismiss", {
+            panelClass: "custom-snackbar",
+            duration: 5000
+          })
+        } else if (summonerStatus === "finished") {
+          this.snackbar.open("Summoner update completed.", "Dismiss", {
+            panelClass: "custom-snackbar",
+            duration: 5000
+          })
+        }
+      }
+    });
+  }
+
   ngOnInit(): void {
     this.route.params.subscribe((params) => {
       this.gameName.set(params['gameName']);
       this.tagLine.set(params['tagLine']);
       this.loadSummoner();
     });
+
+    this.destroyRef.onDestroy(() => {
+      this.stream.disconnect();
+    });
   }
 
   private loadSummoner(): void {
     this.loadingSummoner.set(true);
     this.error.set('');
+
     this.summonerService.search(this.gameName(), this.tagLine()).subscribe({
       next: (data) => {
         this.summoner.set(data);
         this.loadingSummoner.set(false);
+
+        if (data.status !== "idle") {
+          this.summonerStatus.set(data.status);
+          this.updateProgress.set(data.update_progress);
+        }
+
         this.loadMatches(data);
+        this.stream.subscribeSummonerUpdates(data.puuid)
+        this.stream.eventSource!.addEventListener('toggleUpdate', (event: Event): void => {
+          const msg = event as MessageEvent<string>;
+          const data = JSON.parse(msg.data);
+          this.updateInProgress.set(data);
+          this.summonerStatus.set(data.status);
+          this.updateProgress.set(data.progress);
+        });
       },
       error: (err) => {
         this.error.set(err?.error?.detail || 'Player not found.');
@@ -108,7 +162,6 @@ export class PlayerDetailsComponent implements OnInit {
 
   private loadMatches(summoner: SummonerSearch): void {
     this.loadingMatches.set(true);
-    const region = this.getRegionFromPlatform(summoner.region);
     this.matchService.getMatchesByPuuid(summoner.region, summoner.puuid, 10).subscribe({
       next: (data) => {
         this.matches.set(data);
@@ -122,17 +175,11 @@ export class PlayerDetailsComponent implements OnInit {
 
   refreshSummoner(): void {
     const s = this.summoner();
-    if (!s) return;
-    this.loadingSummoner.set(true);
+    if (!s || this.summonerStatus() !== "idle") return;
     this.summonerService.update(s.puuid).subscribe({
-      next: (data) => {
-        this.summoner.set(data);
-        this.loadingSummoner.set(false);
-        this.loadMatches(data);
-      },
-      error: () => {
-        this.loadingSummoner.set(false);
-      },
+      next: () => {
+        this.updateProgress.set(0);
+      }
     });
   }
 
@@ -145,10 +192,9 @@ export class PlayerDetailsComponent implements OnInit {
   }
 
   getPlayerParticipant(match: MatchesRead): Participant | undefined {
-    const puuid = this.summoner()?.puuid;
     for (const team of match.teams) {
       const p = team.participants.find(
-        (part) => part.profile.riot_id === `${this.gameName()}#${this.tagLine()}`,
+        (part) => part.riot_id === `${this.gameName()}#${this.tagLine()}`,
       );
       if (p) return p;
     }
@@ -200,28 +246,6 @@ export class PlayerDetailsComponent implements OnInit {
       }))
       .sort((a, b) => b.games - a.games)
       .slice(0, 5);
-  }
-
-  private getRegionFromPlatform(region: string): string {
-    const map: Record<string, string> = {
-      NA1: 'americas',
-      BR1: 'americas',
-      LA1: 'americas',
-      LA2: 'americas',
-      EUW1: 'europe',
-      EUN1: 'europe',
-      TR1: 'europe',
-      RU: 'europe',
-      KR: 'asia',
-      JP1: 'asia',
-      OC1: 'sea',
-      PH2: 'sea',
-      SG2: 'sea',
-      TH2: 'sea',
-      TW2: 'sea',
-      VN2: 'sea',
-    };
-    return map[region.toUpperCase()] ?? 'europe';
   }
 
   openLogin(): void {

@@ -201,6 +201,43 @@ class RiotAPIFacade:
     # Match Methods
     # =========================================================================
 
+    async def get_match_by_id(self: Self, match_id: str, region: str):
+        """
+        Returns the match data for a given match ID and Riot routing
+        value.
+
+        Args:
+            match_id: The Riot match ID to load.
+            region: The Riot routing value used to query
+                    the match endpoint.
+
+        Returns:
+            Any: The raw match response returned by the underlying
+                 match client.
+        """
+        return await self._match_client.get_match_with_region(match_id, region)
+
+
+    async def get_recent_match_ids(self: Self, puuid: str, region: str, count: int = 10):
+        """
+        Returns recent match IDs for a summoner by PUUID and
+        Riot routing value.
+
+        Args:
+            puuid: The encrypted Riot PUUID of the summoner.
+            region: The Riot routing value used to query the match
+                    history endpoint.
+            count: The maximum number of recent match IDs to return.
+
+        Returns:
+            Any: The raw list of match IDs returned by the underlying
+                 match client.
+        """
+        return await self._match_client.get_match_ids_by_puuid_with_region(
+            puuid, region, count
+        )
+
+
     async def get_recent_matches(
         self: Self,
         puuid: str,

@@ -52,7 +52,7 @@ export class MatchOverviewComponent {
     const riotId = this.currentPlayerRiotId();
     if (riotId) {
       for (const team of m.teams) {
-        const p = team.participants.find((part) => part.profile.riot_id === riotId);
+        const p = team.participants.find((part) => part.riot_id === riotId);
         if (p) return p;
       }
     }
@@ -81,7 +81,7 @@ export class MatchOverviewComponent {
     const m = this.match();
     if (!p) return 0;
     const team = m.teams.find((t) =>
-      t.participants.some((part) => part.profile.riot_id === this.effectiveRiotId())
+      t.participants.some((part) => part.riot_id === this.effectiveRiotId())
     );
     if (!team) return 0;
     const teamKills = team.participants.reduce((s, part) => s + part.kills, 0);
@@ -102,7 +102,7 @@ export class MatchOverviewComponent {
     const all: Participant[] = [];
     for (const team of m.teams) {
       for (const p of team.participants) {
-        if (p.profile.riot_id !== riotId) all.push(p);
+        if (p.riot_id !== riotId) all.push(p);
       }
     }
     return all;

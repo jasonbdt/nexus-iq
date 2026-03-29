@@ -32,6 +32,9 @@ export interface ParticipantProfile {
 export interface Participant {
   champion_id: number;
   champion_name: string;
+  summoner_name: string;
+  tag_line: string;
+  riot_id: string;
   kills: number;
   deaths: number;
   assists: number;

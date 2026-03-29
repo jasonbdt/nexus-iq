@@ -19,7 +19,13 @@ export interface SummonerSearch {
   summoner_level: number;
   profile_icon: number;
   leagues: LeagueEntry[];
+  status: string;
+  update_progress?: number;
   revision_date: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface SummonerUpdateQueued {
+  message: string
 }

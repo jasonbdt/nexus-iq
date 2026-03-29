@@ -1,0 +1,29 @@
+<div class="refresh-button__wrapper">
+  <div
+    class="refresh-button__progress"
+    aria-hidden="true"
+    [style.width.%]="progressFillWidth()"
+    [@progressLayer]="progressLayer()"></div>
+  <button
+    mat-stroked-button
+    type="button"
+    class="refresh-button__surface"
+    [attr.aria-busy]="updating()"
+    [attr.aria-label]="ariaLabel()"
+    [disabled]="isActionDisabled()"
+    (click)="onClick()">
+    <span class="refresh-button__label-slot">
+      @if (updating() === "idle") {
+        <span class="refresh-button__label-row" [@labelSwap]>
+          <mat-icon class="refresh-button__icon">refresh</mat-icon>
+          <span class="mdc-button__label">Update</span>
+        </span>
+      } @else {
+        <span class="refresh-button__label-row" [@labelSwap]>
+          <mat-spinner class="refresh-button__spinner" diameter="20" />
+          <span class="mdc-button__label">Updating... {{ progressPercent() }}%</span>
+        </span>
+      }
+    </span>
+  </button>
+</div>

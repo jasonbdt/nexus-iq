@@ -1,8 +1,8 @@
 """Controller for summoner lookup, creation, and update logic."""
 
-import asyncio
-from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
+from typing import Optional
+
 from sqlmodel import select
 
 from ...dependencies import SUMMONER_TTL_MINUTES
@@ -13,18 +13,8 @@ from ..models import Summoner, SummonerLeagues, Match, MatchTeam, MatchTeamBans,
 from ..riot_api import RiotAPIDep, RiotAPINotFoundError, LeagueEntry
 from ..riot_api.models import MatchParticipantPerkStyle
 
-# from ..riot_api.summoners import RiotSummoners
 
 logger = get_logger(__name__)
-
-
-@dataclass(frozen=True)
-class FallbackSummonerInfo:
-    """Fallback info for creating a stub summoner when Riot API lookup fails."""
-
-    game_name: str
-    tag_line: str
-    region: str
 
 
 def get_summoner_by_name(
@@ -51,6 +41,25 @@ def get_match_by_match_id(
     )
 
     return session.exec(statement).first()
+
+
+async def persist_summoner_match(
+    region: str,
+    match_id: str,
+    session: SessionDep,
+    riot_api: RiotAPIDep
+) -> None:
+    """Fetch and persist one match by ID. No-op if the match already exists."""
+    if get_match_by_match_id(match_id, session):
+        return
+
+    match_data = await riot_api.get_match_by_id(match_id, region)
+    if not match_data:
+        return
+
+    new_match, team_ids = _persist_match_and_teams(session, match_data)
+    await _persist_match_participants(session, riot_api, match_data, new_match, team_ids)
+    session.commit()
 
 
 def get_summoner_by_puuid(puuid: str, session: SessionDep) -> Summoner:
@@ -133,8 +142,7 @@ async def find_or_create(
 async def find_or_create_by_puuid(
     puuid: str,
     session: SessionDep,
-    riot_api: RiotAPIDep,
-    fallback: FallbackSummonerInfo,
+    riot_api: RiotAPIDep
 ) -> Summoner | None:
     """
     Return existing summoner or create one by PUUID.
@@ -179,26 +187,6 @@ async def find_or_create_by_puuid(
             return new_summoner
         return summoner_in_db
 
-    # Fallback: Riot API failed (e.g. renamed/deleted account). Create minimal
-    # summoner to satisfy FK constraint for match participants.
-    logger.warning(
-        "Could not resolve summoner by PUUID %s... (Riot API failed). "
-        "Creating stub with match-time name %s#%s",
-        puuid[:8], fallback.game_name, fallback.tag_line,
-    )
-    stub = Summoner(
-        puuid=puuid,
-        region=fallback.region,
-        summoner_name=fallback.game_name,
-        tag_line=fallback.tag_line,
-        summoner_level=0,
-        profile_icon=0,
-        revision_date=datetime.now(timezone.utc),
-    )
-    session.add(stub)
-    session.commit()
-    session.refresh(stub)
-    return stub
 
 def update_leagues(
     summoner: Summoner,
@@ -234,7 +222,6 @@ def update_leagues(
 
             session.add(league)
             session.commit()
-            print(summoner_league)
 
 
 def get_participant_runes(
@@ -300,23 +287,19 @@ async def _persist_match_participants(
     team_ids: dict[int, int | None],
 ) -> None:
     """Create and persist MatchParticipants and runes for a match."""
-    for i, participant in enumerate(riot_match.info.participants):
-        if i > 0:
-            await asyncio.sleep(2.5)
-        await find_or_create_by_puuid(
-            participant.puuid,
-            session,
-            riot_api,
-            fallback=FallbackSummonerInfo(
-                game_name=participant.riot_id_game_name,
-                tag_line=participant.riot_id_tagline,
-                region=riot_match.info.platform_id.lower(),
-            ),
-        )
+    for participant in riot_match.info.participants:
+        if not participant.puuid == "BOT":
+            await find_or_create_by_puuid(
+                participant.puuid,
+                session,
+                riot_api
+            )
         new_participant = MatchParticipant(
             match_id=db_match.id,
             team_id=team_ids[participant.team_id],
             summoner_puuid=participant.puuid,
+            summoner_name=participant.riot_id_game_name,
+            tag_line=participant.riot_id_tagline,
             champion_id=participant.champion_id,
             champion_name=participant.champion_name,
             lane=participant.lane,
@@ -384,6 +367,37 @@ async def update_matches(
         else:
             logger.debug("Match %s already exist.", match.metadata.match_id)
     session.commit()
+
+
+async def refresh_summoner_profile(
+    puuid: str,
+    session: SessionDep,
+    riot_api: RiotAPIDep
+) -> Optional[Summoner]:
+    """Refresh summoner profile and leagues only. Returns summoner or None."""
+    summoner = get_summoner_by_puuid(puuid, session)
+
+    if not summoner:
+        return None
+
+    if is_summoner_ttl_expired(summoner):
+        try:
+            _summoner = await riot_api.get_summoner_by_puuid(summoner.puuid)
+        except RiotAPINotFoundError:
+            return None
+
+        summoner.summoner_name = _summoner.summoner_name
+        summoner.tag_line = _summoner.tag_line
+        summoner.region = _summoner.region
+        summoner.summoner_level = _summoner.summoner_level
+        summoner.profile_icon = _summoner.profile_icon
+
+        update_leagues(summoner, _summoner.leagues, session)
+        summoner.updated_at = datetime.now(tz=timezone.utc)
+
+        session.add(summoner)
+        session.commit()
+    return None
 
 
 async def update(
