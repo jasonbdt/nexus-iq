@@ -426,6 +426,7 @@ class MatchParticipantsRead(BaseModel):
     @computed_field
     @property
     def riot_id(self: Self) -> str:
+        """Get the full RiotID of the match participant."""
         return f"{self.summoner_name}#{self.tag_line}"
 
 

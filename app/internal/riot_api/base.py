@@ -38,7 +38,7 @@ async def retry_middleware(
     handler: ClientHandlerType
 ) -> ClientResponse:
     """Retry failed HTTP requests up to 3 times, but never retry 429 (rate limit)."""
-    for attempt in range(3):
+    for _ in range(3):
         response = await handler(req)
         if response.ok or response.status == 429:
             return response

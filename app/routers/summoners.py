@@ -27,7 +27,11 @@ router = APIRouter(
 logger = get_logger(__name__)
 
 
-@router.get("/search/{tag_line}/{game_name}", response_model=SummonerSearch, response_model_exclude_none=True)
+@router.get(
+    "/search/{tag_line}/{game_name}",
+    response_model=SummonerSearch,
+    response_model_exclude_none=True
+)
 async def get_summoner(
     current_user: Annotated[Optional[User], Depends(get_current_user_optional)],
     tag_line: str,
@@ -37,13 +41,17 @@ async def get_summoner(
     redis: RedisDep
 ):
     """Look up a summoner by game name and tag line."""
+    channel = "nexus_iq:summoner_updates"
     if current_user:
         logger.info(
             "User[%s] searching for Summoner \"%s#%s\"",
             current_user.id, game_name, tag_line,
         )
     else:
-        logger.info("Anonymous user searching for Summoner \"%s#%s\"", game_name, tag_line)
+        logger.info(
+            "Anonymous user searching for Summoner \"%s#%s\"",
+            game_name, tag_line
+        )
 
     summoner = await SummonersController.find_or_create(
         game_name, tag_line, session, riot_api
@@ -55,13 +63,23 @@ async def get_summoner(
             status_code=status.HTTP_404_NOT_FOUND
         )
 
-    remaining_jobs = int(await redis.scard(f"nexus_iq:summoner_updates:{summoner.puuid}"))
-    total_jobs = int(await redis.get(f"nexus_iq:summoner_updates:{summoner.puuid}:total_jobs") or 0)
+    remaining_jobs = int(await redis.scard(f"{channel}:{summoner.puuid}"))
+    total_jobs = int(
+        await redis.get(f"{channel}:{summoner.puuid}:total_jobs") or 0
+    )
+
+    try:
+        update_progress = f"{(1 - (remaining_jobs / total_jobs)) * 100:.2f}"
+    except ZeroDivisionError:
+        update_progress = f"{0:.2f}"
 
     return SummonerSearch(
         status="idle" if not remaining_jobs else "updating",
-        update_progress=None if not remaining_jobs else float(f"{(1 - (remaining_jobs / total_jobs)) * 100:.2f}"),
-        leagues=[SummonerLeaguesRead(**league.model_dump()) for league in summoner.leagues],
+        update_progress=None if not remaining_jobs else float(update_progress),
+        leagues=[
+            SummonerLeaguesRead(**league.model_dump())
+            for league in summoner.leagues
+        ],
         **summoner.model_dump()
     )
 
@@ -86,6 +104,15 @@ async def update_summoner(
 def parse_pubsub_message(
     raw_data: bytes | str | dict
 ) -> tuple[str, dict | str]:
+    """
+    Parse published messages from a subscribed redis channel.
+
+    Args:
+        raw_data (bytes|str|dict): Raw message data sent by Redis.
+
+    Returns:
+        tuple[str, dict|str]: A tuple with an event name and data payload.
+    """
     if isinstance(raw_data, bytes):
         raw_data = raw_data.decode("utf8")
 
@@ -118,6 +145,18 @@ def build_sse(
     event_id: str | None = None,
     retry: int | None = None
 ) -> str:
+    """
+    Prebuild the event message for server-sent events.
+
+    Args:
+        data (dict|str|bytes): Data field for the event message.
+        event (str|None): Describes the type of event.
+        event_id (str|None): (Optional) Last event id.
+        retry (int|None): (Optional) Reconnection time in milliseconds.
+
+    Returns:
+        str: The prebuilt message as a string to send as a server event.
+    """
     if isinstance(data, bytes):
         data = data.decode('utf8').replace("'", '"')
     payload = data if isinstance(data, str) else json.dumps(data, ensure_ascii=False)
@@ -142,14 +181,14 @@ async def get_update_status(
     redis: RedisDep,
     request: Request
 ):
-    CHANNEL = f"nexus_iq:summoner_profile:{puuid}"
-
+    """Subscribes to the event stream updates of specified summoner puuid."""
+    channel = f"nexus_iq:summoner_profile:{puuid}"
     pubsub = redis.pubsub(ignore_subscribe_messages=True)
-    await pubsub.subscribe(CHANNEL)
+    await pubsub.subscribe(channel)
 
     async def event_generator():
         try:
-            yield build_sse({"status": "connected", "channel": CHANNEL}, event="connected")
+            yield build_sse({"status": "connected", "channel": channel}, event="connected")
 
             while True:
                 if await request.is_disconnected():
@@ -170,7 +209,7 @@ async def get_update_status(
                 await asyncio.sleep(0.1)
         finally:
             with suppress(Exception):
-                await pubsub.unsubscribe(CHANNEL)
+                await pubsub.unsubscribe(channel)
                 await pubsub.aclose()
 
     return StreamingResponse(

@@ -85,6 +85,7 @@ def index():
 
 @app.get("/health/redis")
 def redis_health(redis: RedisDep):
+    """Health check for Redis Service."""
     return {"status": "ok" if redis.ping() else "not ok"}
 
 

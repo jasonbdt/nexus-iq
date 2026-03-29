@@ -1,3 +1,17 @@
+"""
+Redis helpers for shared state, dependency access, and Riot Games API
+rate limiting.
+
+This module provides Redis initialization and access helpers used by the
+application runtime, along with a token-bucket-based rate limiting
+mechanism for Riot API requests. It centralizes Redis state management,
+FastAPI dependency wiring, and request throttling logic backed by a
+Lua script to keep bucket updates atomic.
+
+The rate limiter operates per Riot routing value and is designed to
+enforce regional request limits consistently across concurrent workers
+and requests.
+"""
 from typing import Annotated, Optional
 
 import os
@@ -54,22 +68,60 @@ return { allowed, math.floor(remaining) }
 """
 
 def bucket_key(routing: str) -> str:
+    """
+    Builds the Redis key for the token bucket of a Riot routing value.
+
+    Args:
+        routing: The Riot routing value used to scope the token bucket.
+
+    Returns:
+        str: The Redis key for the routing-specific token bucket.
+    """
     return f"bucket:riot:{routing}"
 
 
 async def init_redis() -> redis.Redis:
+    """
+    Initializes and stores the shared Redis client for the application.
+
+    This function creates the Redis client instance used by the
+    application lifecycle and stores it in module-level state so it
+    can be reused by dependencies and helper functions.
+
+    Returns:
+        redis.Redis: The initialized Redis client instance.
+    """
     global _STATE
     _STATE = redis.Redis(host=os.getenv("REDIS_HOST"))
     return _STATE
 
 
 def get_redis() -> redis.Redis:
+    """
+    Returns the initialized shared Redis client.
+
+    Raises:
+        RuntimeError: If Redis has not been initialized yet.
+
+    Returns:
+        redis.Redis: The shared Redis client instance.
+    """
     if _STATE is None:
         raise RuntimeError("Redis not initialized. FastAPI lifespan didn't run?")
     return _STATE
 
 
 async def close_redis() -> None:
+    """
+    Closes the shared Redis client and clears the stored module state.
+
+    This function should be called during application shutdown to ensure
+    the Redis connection is closed cleanly and the cached
+    client reference is removed.
+
+    Returns:
+        None
+    """
     global _STATE
     if _STATE is not None:
         await _STATE.aclose()
@@ -78,6 +130,17 @@ async def close_redis() -> None:
 RedisDep = Annotated[redis.Redis, Depends(get_redis)]
 
 def _redis_client() -> redis.Redis:
+    """
+    Returns a Redis client for internal helper usage.
+
+    The function prefers the initialized shared Redis client.
+
+    If Redis has not been initialized through the application lifecycle,
+    it falls back to creating a direct client instance.
+
+    Returns:
+        redis.Redis: A usable Redis client instance.
+    """
     try:
         return get_redis()
     except RuntimeError:
@@ -89,6 +152,23 @@ async def try_acquire(
     max_tokens: float = 5.0,
     refill_per_second: float = 0.85,
 ) -> tuple[bool, float, int | None]:
+    """
+    Attempts to acquire a token from the routing-specific token bucket.
+
+    This function executes the Redis Lua script atomically to refill
+    the bucket based on elapsed time, consume one token if available,
+    and return the current acquisition result.
+
+    Args:
+        routing: The Riot routing value whose bucket should be checked.
+        max_tokens: The maximum number of tokens the bucket can hold.
+        refill_per_second: The token refill rate per second.
+
+    Returns:
+        tuple[bool, float, int | None]: A tuple containing whether
+        acquisition was allowed, the remaining token count, and an
+        optional retry delay in seconds if the request was rejected.
+    """
     redis_conn = _redis_client()
 
     key = bucket_key(routing)
@@ -112,6 +192,26 @@ async def wait_acquire(
     refill_per_second: float = 0.85,
     max_wait: float = 180.0
 ) -> None:
+    """
+    Waits until a token can be acquired from the routing-specific bucket.
+
+    This helper repeatedly attempts token acquisition until it succeeds or the
+    configured maximum wait time is exceeded. Between attempts, it sleeps for a
+    short bounded interval derived from the suggested retry delay.
+
+    Args:
+        routing: The Riot routing value whose bucket should be used.
+        max_tokens: The maximum number of tokens the bucket can hold.
+        refill_per_second: The token refill rate per second.
+        max_wait: The maximum number of seconds to wait for acquisition.
+
+    Raises:
+        TimeoutError: If no token could be acquired within the configured wait
+            time.
+
+    Returns:
+        None
+    """
     deadline = time.monotonic() + max_wait
 
     while time.monotonic() < deadline:
@@ -136,10 +236,25 @@ async def acquire_riot(
     max_wait: float = 180.0,
 ) -> None:
     """
-    Acquire from per-region token bucket before a Riot API request.
+    Waits for permission to perform a Riot API request for the given
+    routing.
 
-    Riot limits (per region): 100 req/120s, 20 req/s burst.
-    Single bucket with max_tokens=20 and refill=100/120 enforces both.
+    This helper applies the default Riot routing bucket settings and
+    blocks until a token becomes available or the maximum wait time is
+    exceeded.
+
+    Args:
+        routing: The Riot routing value whose rate limit bucket
+                 should be used.
+        max_wait: The maximum number of seconds to wait for an
+                  available token.
+
+    Raises:
+        TimeoutError: If no token could be acquired within the
+                      configured wait time.
+
+    Returns:
+        None
     """
     await wait_acquire(
         routing,
