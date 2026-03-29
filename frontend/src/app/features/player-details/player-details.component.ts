@@ -108,7 +108,6 @@ export class PlayerDetailsComponent implements OnInit {
 
   private loadMatches(summoner: SummonerSearch): void {
     this.loadingMatches.set(true);
-    const region = this.getRegionFromPlatform(summoner.region);
     this.matchService.getMatchesByPuuid(summoner.region, summoner.puuid, 10).subscribe({
       next: (data) => {
         this.matches.set(data);
@@ -145,10 +144,9 @@ export class PlayerDetailsComponent implements OnInit {
   }
 
   getPlayerParticipant(match: MatchesRead): Participant | undefined {
-    const puuid = this.summoner()?.puuid;
     for (const team of match.teams) {
       const p = team.participants.find(
-        (part) => part.profile.riot_id === `${this.gameName()}#${this.tagLine()}`,
+        (part) => part.riot_id === `${this.gameName()}#${this.tagLine()}`,
       );
       if (p) return p;
     }
@@ -200,28 +198,6 @@ export class PlayerDetailsComponent implements OnInit {
       }))
       .sort((a, b) => b.games - a.games)
       .slice(0, 5);
-  }
-
-  private getRegionFromPlatform(region: string): string {
-    const map: Record<string, string> = {
-      NA1: 'americas',
-      BR1: 'americas',
-      LA1: 'americas',
-      LA2: 'americas',
-      EUW1: 'europe',
-      EUN1: 'europe',
-      TR1: 'europe',
-      RU: 'europe',
-      KR: 'asia',
-      JP1: 'asia',
-      OC1: 'sea',
-      PH2: 'sea',
-      SG2: 'sea',
-      TH2: 'sea',
-      TW2: 'sea',
-      VN2: 'sea',
-    };
-    return map[region.toUpperCase()] ?? 'europe';
   }
 
   openLogin(): void {
