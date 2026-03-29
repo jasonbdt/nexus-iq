@@ -14,6 +14,7 @@ import { LoginModalComponent } from '../../shared/components/login-modal/login-m
 import { RegisterModalComponent } from '../../shared/components/register-modal/register-modal.component';
 import { MatchOverviewComponent } from '../../shared/components/match-overview/match-overview';
 import { SummonerSearch, MatchesRead, LeagueEntry, Participant } from '../../core/models';
+import { RefreshButtonComponent } from '../../shared/components/refresh-button/refresh-button.component';
 import { SubscribeService } from '../../core/services/subscribe.service';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
@@ -29,6 +30,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
     MatSnackBarModule,
     NavbarComponent,
     AiChatWidgetComponent,
+    RefreshButtonComponent,
   ],
   templateUrl: './player-details.component.html',
   styleUrl: './player-details.component.scss',

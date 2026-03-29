@@ -67,10 +67,10 @@
               <span class="qs-label">LP</span>
             </div>
           }
-          <button mat-stroked-button class="refresh-btn" (click)="refreshSummoner()">
-            <mat-icon>refresh</mat-icon>
-            Update
-          </button>
+          <app-refresh-button
+            [updating]="summonerStatus()"
+            [progress]="updateProgress()"
+            (refresh)="refreshSummoner()" />
         </div>
       </div>
     </div>
