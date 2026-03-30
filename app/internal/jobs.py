@@ -151,6 +151,10 @@ async def persist_summoner_match_job(
                 "status": "in_progress",
                 "progress": calc_update_progress(puuid, redis_conn)
             }))
+
+            redis_conn.publish(f"nexus_iq:summoner_profile:{puuid}", message=json.dumps({
+                "event": "reloadMatchList"
+            }))
         else:
             reset_summoner_status(puuid, redis_conn)
 

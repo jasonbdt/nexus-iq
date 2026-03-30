@@ -152,6 +152,10 @@ export class PlayerDetailsComponent implements OnInit {
           this.summonerStatus.set(data.status);
           this.updateProgress.set(data.progress);
         });
+
+        this.stream.eventSource!.addEventListener('reloadMatchList', (): void => {
+          this.loadMatches(data);
+        });
       },
       error: (err) => {
         this.error.set(err?.error?.detail || 'Player not found.');
