@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 
-const DDragon_BASE = '/api/v1/cdn/16.4.1/img';
+const DDragon_BASE = '/api/v1/cdn/16.6.1/img';
 
 /**
  * Provides URLs for DDragon static assets served through the backend.
