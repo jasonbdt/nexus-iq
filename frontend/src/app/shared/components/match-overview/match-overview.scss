@@ -1,9 +1,23 @@
+@reference "tailwindcss";
+
 :host {
   display: contents;
 }
 
 :host.clickable {
   cursor: pointer;
+}
+
+.match-result-bar {
+  @apply absolute left-0 top-0 bottom-0 w-[5px];
+
+  &.win-bar {
+    @apply bg-green-500;
+  }
+
+  &.loss-bar {
+    @apply bg-red-500;
+  }
 }
 
 .match-items {

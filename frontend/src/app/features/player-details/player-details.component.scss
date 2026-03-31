@@ -316,17 +316,6 @@
   }
 }
 
-.match-result-bar {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-
-  &.win-bar { background: #4ade80; }
-  &.loss-bar { background: #f87171; }
-}
-
 .match-champion {
   flex-shrink: 0;
 }
