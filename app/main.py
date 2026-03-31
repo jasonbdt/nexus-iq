@@ -91,6 +91,10 @@ def redis_health(redis: RedisDep):
     return {"status": "ok" if redis.ping() else "not ok"}
 
 
+CHAMPION_FILE_ALIASES = {
+    "fiddlesticks": "Fiddlesticks",
+}
+
 BASE_CDN_DIR = Path("/usr/src/ddragon/cdn").resolve()
 def resolve_safe_path(file_path: str) -> Path:
     full_path = (BASE_CDN_DIR / file_path).resolve()
@@ -117,7 +121,9 @@ def get_source_png_path(requested_path: Path) -> Path:
     if stem.endswith("_cropped"):
         stem = stem.removesuffix("_cropped")
 
-    return requested_path.with_name(f"{stem}.png")
+    canonical = CHAMPION_FILE_ALIASES.get(stem.lower(), stem)
+
+    return requested_path.with_name(f"{canonical}.png")
 
 
 def crop_image(img: Image.Image) -> Image.Image:
