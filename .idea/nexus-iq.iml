@@ -5,7 +5,7 @@
       <sourceFolder url="file://$MODULE_DIR$/tests" isTestSource="true" />
       <excludeFolder url="file://$MODULE_DIR$/.venv" />
       <excludeFolder url="file://$MODULE_DIR$/htmlcov" />
-      <excludeFolder url="file://$MODULE_DIR$/ddragon/cdn/16.6.1" />
+      <excludeFolder url="file://$MODULE_DIR$/ddragon/cdn" />
     </content>
     <orderEntry type="jdk" jdkName="Python 3.13 (nexus-iq)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />

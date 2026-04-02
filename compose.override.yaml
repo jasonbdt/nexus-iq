@@ -23,19 +23,5 @@ services:
     depends_on:
       - redis
 
-  pgadmin:
-    depends_on:
-      database:
-        condition: service_started
-    image: dpage/pgadmin4
-    ports:
-      - 8001:80
-    volumes:
-      - pgadmindata:/var/lib/pgadmin
-    environment:
-      PGADMIN_DEFAULT_EMAIL: ja.bladt@gmail.com
-      PGADMIN_DEFAULT_PASSWORD: geheim2
-
 volumes:
-  pgadmindata:
   redisinsight:
