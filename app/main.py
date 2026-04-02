@@ -151,9 +151,6 @@ def crop_image(img: Image.Image) -> Image.Image:
 
 def convert_png_to_webp(source: Path, target: Path, crop: bool) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
-    temp_path = target.with_name(
-        f".{target.stem}.{uuid4().hex}.tmp{target.suffix}"
-    )
 
     with Image.open(source) as img:
         result = crop_image(img) if crop else img.copy()
@@ -161,8 +158,18 @@ def convert_png_to_webp(source: Path, target: Path, crop: bool) -> None:
         if result.mode not in ("RGB", "RGBA"):
             result = result.convert("RGBA")
 
-        result.save(temp_path, format="WEBP", quality=90, method=6)
-    temp_path.replace(target)
+        with tempfile.NamedTemporaryFile(
+            suffix=".webp",
+            dir=str(target.parent),
+            delete=False
+        ) as tmp_file:
+            temp_path = Path(tmp_file.name)
+
+        try:
+            result.save(temp_path, format="WEBP", quality=90, method=6)
+            temp_path.replace(target)
+        finally:
+            temp_path.unlink(missing_ok=True)
 
 
 def guess_media_type(file_path: Path) -> str:
