@@ -4,28 +4,154 @@
 @let kp = killParticipation();
 @let items = purchasedItems();
 @let others = otherParticipants();
-<div class="match-result-bar" [class.win-bar]="isWin" [class.loss-bar]="!isWin"></div>
+
+<article>
+  <div class="match__game-result" [class.win]="isWin" [class.loss]="!isWin"></div>
+
+  <header class="match__game-meta">
+    <div class="match-date">
+      {{ m.game_mode }} at
+      {{ m.game_start | date: 'MMM d, y' }}
+    </div>
+    <div class="match-duration">{{ getGameDuration(m) }}</div>
+  </header>
+
+  <main class="match__game-info">
+    <div class="match__game-info__summoner-details">
+      <div class="match__game-info__summoner-details__champion">
+        <img
+          [src]="getChampionIconUrl(p?.champion_name ?? 'Jinx')"
+          [alt]="p?.champion_name"
+          class="match__game-info__summoner-details__champion-image"
+          (error)="$any($event.target).src = getChampionIconUrl('Jinx')"
+        />
+
+        <span class="match__game-info__summoner-details__champion-level">
+          {{ p?.champion_level }}
+        </span>
+      </div>
+
+      <div class="match__game-info__summoner-details__spells">
+        <img
+          [src]="getSummonerSpellIconUrl(p?.spell_1 ?? 'SummonerFlash')"
+          class="w-8 h-8 rounded-md"
+          [alt]="p?.spell_1"
+        />
+
+        <img
+          [src]="getSummonerSpellIconUrl(p?.spell_2 ?? 'SummonerFlash')"
+          class="w-8 h-8 rounded-md"
+          [alt]="p?.spell_2"
+        />
+      </div>
+
+      <div class="match__game-info__runes">
+        <div><img [src]="getRuneStyleIconUrl(p?.primary_style ?? '')" alt=" " /></div>
+        <div><img [src]="getRuneStyleIconUrl(p?.secondary_style ?? '')" alt=" " /></div>
+      </div>
+    </div>
+
+    <div class="match__game-info__stats">
+      <p class="champion-name">{{ p?.champion_name }}</p>
+      <p class="kda-score opacity-60" [matTooltip]="p?.kda?.toFixed(2)+' KDA'" matTooltipPosition="below">
+        {{ p?.kills }} / {{ p?.deaths }} / {{ p?.assists }}
+      </p>
+      <p class="kill-participation">{{ kp }}% KP</p>
+    </div>
+
+    <div class="match__game-info__farm">
+      <p class="total-cs">{{ p?.total_cs }} CS</p>
+      <p class="total-gold">{{ p?.gold_earned?.toLocaleString() }} G</p>
+      <p class="total-vision">{{ p?.vision_score }} Vision</p>
+    </div>
+
+    <div class="match__game-info__items">
+      @for (itemId of items; track itemId) {
+        <div class="item">
+          <img
+            [src]="itemImageUrl(itemId)"
+            [alt]="'Item ' + itemId"
+            (error)="$any($event.target).style.display = 'none'"
+          />
+        </div>
+      }
+    </div>
+    <div class="match__game-info__teams">
+      @for (team of match().teams; track team.team_id; let team_idx = $index) {
+        <div class="match__game-info__teams-participants" [attr.data-team_id]="team.team_id">
+          @for (participant of team.participants; track participant.riot_id) {
+            <div class="participant">
+              @if (team_idx == 1) {
+                <img
+                  [src]="getChampionIconUrl(participant.champion_name)"
+                  [alt]="participant.champion_name + ' - ' + participant.riot_id"
+                  class="champion-square"
+                  [title]="participant.riot_id"
+                  (error)="$any($event.target).src = getChampionIconUrl('Jinx')"
+                />
+              }
+
+              @if (participant.summoner_name.length >= 5) {
+                <p>{{ participant.summoner_name | slice:0:5 }}...</p>
+              } @else {
+                <p>{{ participant.summoner_name }}</p>
+              }
+
+              @if (team_idx == 0) {
+                <img
+                  [src]="getChampionIconUrl(participant.champion_name)"
+                  [alt]="participant.champion_name + ' - ' + participant.riot_id"
+                  class="champion-square"
+                  [title]="participant.riot_id"
+                  (error)="$any($event.target).src = getChampionIconUrl('Jinx')"
+                />
+              }
+            </div>
+          }
+        </div>
+
+        @if (team_idx == 0) {
+          <div class="match__game-info__teams-lanes">
+            <div><img class="h-4 w-4" [src]="getLaneIconUrl('top')" alt=""></div>
+            <div><img class="h-4 w-4" [src]="getLaneIconUrl('jungle')" alt=""></div>
+            <div><img class="h-4 w-4" [src]="getLaneIconUrl('middle')" alt=""></div>
+            <div><img class="h-4 w-4" [src]="getLaneIconUrl('bottom')" alt=""></div>
+            <div><img class="h-4 w-4" [src]="getLaneIconUrl('utility')" alt=""></div>
+          </div>
+        }
+      }
+    </div>
+  </main>
+</article>
+
+
+<!-- <div class="match-result-bar" [class.win-bar]="isWin" [class.loss-bar]="!isWin"></div>
+
+<div class="col-span-9"></div>
+
 <div class="match-champion">
   <img
     [src]="getChampionIconUrl(p?.champion_name ?? 'Jinx')"
     [alt]="p?.champion_name"
-    class="champ-icon"
+    class="champ-icon rounded-full h-12 w-12"
     (error)="$any($event.target).src = getChampionIconUrl('Jinx')"
   />
 </div>
 <div class="match-info">
   <p class="match-champ-name">{{ p?.champion_name }}</p>
-  <p class="match-mode">{{ m.game_mode }} · {{ m.game_start | date: 'MMM d' }}</p>
-</div>
-<div class="match-kda">
-  <p class="kda-score">
+  <p class="kda-score opacity-60">
     <span class="kda-k">{{ p?.kills }}</span>
     /
     <span class="kda-d">{{ p?.deaths }}</span>
     /
     <span class="kda-a">{{ p?.assists }}</span>
   </p>
-  <p class="kda-ratio">{{ p?.kda?.toFixed(2) }} KDA · {{ kp }}% KP</p>
+  <p class="match-mode">{{ m.game_mode }} · {{ m.game_start | date: 'MMM d' }}</p>
+</div>
+<div class="match-kda">
+
+  <p class="kda-ratio">{{ p?.kda?.toFixed(2) }} KDA</p>
+  <p class="kill-participation">{{ kp }}% KP</p>
 </div>
 <div class="match-extra">
   <p class="match-cs">{{ p?.total_cs }} CS</p>
@@ -36,7 +162,7 @@
     <img
       [src]="itemImageUrl(itemId)"
       [alt]="'Item ' + itemId"
-      class="item-icon"
+      class="item-icon w-8 h-8"
       (error)="$any($event.target).style.display = 'none'"
     />
   }
@@ -57,4 +183,4 @@
     {{ isWin ? 'Victory' : 'Defeat' }}
   </span>
   <span class="match-duration">{{ getGameDuration(m) }}</span>
-</div>
+</div> -->

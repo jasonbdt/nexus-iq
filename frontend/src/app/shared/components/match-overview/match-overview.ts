@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
-import { DatePipe } from '@angular/common';
+import { DatePipe, SlicePipe } from '@angular/common';
 import { Router } from '@angular/router';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { DdragonService } from '../../../core/services/ddragon.service';
 import { MatchesRead, Participant } from '../../../core/models';
 
@@ -25,7 +26,11 @@ const PLATFORM_TO_REGION: Record<string, string> = {
 
 @Component({
   selector: 'app-match-overview',
-  imports: [DatePipe],
+  imports: [
+    DatePipe,
+    MatTooltipModule,
+    SlicePipe
+  ],
   templateUrl: './match-overview.html',
   styleUrl: './match-overview.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -92,8 +97,8 @@ export class MatchOverviewComponent {
   readonly purchasedItems = computed(() => {
     const p = this.participant();
     if (!p) return [];
-    const ids = [p.item0, p.item1, p.item2, p.item3, p.item4, p.item5, p.item6];
-    return ids.filter((id) => id && id > 0);
+    const ids = [p.item0, p.item1, p.item2, p.item6, p.item3, p.item4, p.item5];
+    return ids // .filter((id) => id && id > 0);
   });
 
   readonly otherParticipants = computed(() => {
@@ -122,8 +127,20 @@ export class MatchOverviewComponent {
     return this.ddragon.championImageUrl(championName ?? 'Jinx');
   }
 
+  getSummonerSpellIconUrl(spellName: string): string {
+    return this.ddragon.spellImageUrl(spellName ?? 'Flash');
+  }
+
+  getRuneStyleIconUrl(runeStyle: string): string {
+    return this.ddragon.runeStyleImageUrl(runeStyle);
+  }
+
   itemImageUrl(itemId: number): string {
     return this.ddragon.itemImageUrl(itemId);
+  }
+
+  getLaneIconUrl(laneName: string): string {
+    return this.ddragon.laneImageUrl(laneName);
   }
 
   getGameDuration(m: MatchesRead): string {

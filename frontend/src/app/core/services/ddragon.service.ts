@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 
-const DDragon_BASE = '/api/v1/cdn/16.6.1/img';
+const CDN_BASE = '/api/v1/cdn';
+const DDragon_BASE = `${CDN_BASE}/16.7.1/img`;
 
 /**
  * Provides URLs for DDragon static assets served through the backend.
@@ -18,6 +19,19 @@ export class DdragonService {
 
   itemImageUrl(itemId: number): string {
     return `${DDragon_BASE}/item/${itemId}.webp`;
+  }
+
+  spellImageUrl(spellName: string): string {
+    return `${DDragon_BASE}/spell/${spellName}.webp`;
+  }
+
+  runeStyleImageUrl(runeStyle: string): string {
+    runeStyle = runeStyle.replaceAll('.png', '.webp')
+    return `${CDN_BASE}/img/${runeStyle}`;
+  }
+
+  laneImageUrl(laneName: string): string {
+    return `${CDN_BASE}/img/lane-images/${laneName}.webp`;
   }
 
   /** Rank wings border by tier. Uses wings_{tier}_plate.png (profile icon border). Place in cdn/VERSION/img/ranked-emblem/wings/ */

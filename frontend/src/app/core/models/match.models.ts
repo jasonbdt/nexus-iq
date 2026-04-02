@@ -32,7 +32,12 @@ export interface ParticipantProfile {
 export interface Participant {
   champion_id: number;
   champion_name: string;
+  champion_level: number;
   summoner_name: string;
+  spell_1: string;
+  spell_2: string;
+  primary_style: string;
+  secondary_style: string;
   tag_line: string;
   riot_id: string;
   kills: number;

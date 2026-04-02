@@ -104,12 +104,12 @@
               <div class="matches-list">
                 @for (match of matches().slice(0, 5); track match.match_id) {
                   @let won = didWin(match);
-                  <div class="match-row" [class.win]="won" [class.loss]="!won">
-                    <app-match-overview
+                  <!-- <div class="match-row" [class.win]="won" [class.loss]="!won"> -->
+                    <app-match-overview class="match"
                       [match]="match"
                       [currentPlayerRiotId]="gameName() + '#' + tagLine()"
                     />
-                  </div>
+                  <!-- </div> -->
                 }
               </div>
             </div>
@@ -122,10 +122,22 @@
                   <div class="rank-card-tier">{{ sq.tier }} {{ sq.rank }}</div>
                   <div class="rank-card-stats">
                     <span>{{ sq.wins }}W {{ sq.losses }}L</span>
-                    <span class="win-rate-text">{{ (sq.win_rate * 100).toFixed(0) }}% WR</span>
+                    <span class="win-rate-text">{{ (sq.win_rate).toFixed(2) }}% WR</span>
                   </div>
                   <div class="rank-progress">
-                    <div class="rank-progress-fill" [style.width.%]="sq.win_rate * 100"></div>
+                    <div class="rank-progress-fill" [style.width.%]="sq.win_rate"></div>
+                  </div>
+                </div>
+              } @else {
+                <div class="rank-card-sm">
+                  <p class="rank-card-label">Solo / Duo</p>
+                  <div class="rank-card-tier">Unranked</div>
+                  <div class="rank-card-stats">
+                    <span>0W 0L</span>
+                    <span class="win-rate-text">0% WR</span>
+                  </div>
+                  <div class="rank-progress">
+                    <div class="rank-progress-fill" [style.width.%]="0"></div>
                   </div>
                 </div>
               }

@@ -1,11 +1,129 @@
 @reference "tailwindcss";
 
 :host {
-  display: contents;
+  /* @apply grid grid-cols-12 grid-rows-2 text-sm; */
+  @apply relative;
 }
 
 :host.clickable {
   cursor: pointer;
+}
+
+:host {
+  @apply rounded-xl bg-slate-900/50;
+  padding: 0.75rem 1rem;
+  // border-radius: 10px;
+  // background: rgba(5, 11, 24, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  // position: relative;
+  overflow: hidden;
+  transition: border-color 0.2s;
+
+  &:hover {
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+
+  .match {
+    &__game-result {
+      @apply absolute left-0 top-0 bottom-0 w-[4px] overflow-hidden blur-[2px];
+
+      &.loss { @apply bg-red-500 }
+      &.win { @apply bg-green-500 }
+    }
+
+    &__game-meta {
+      @apply flex flex-row justify-between text-xs mb-4;
+    }
+
+    &__game-info {
+      @apply items-center grid grid-cols-12;
+
+      &__summoner-details {
+        @apply flex items-center md:col-span-2 justify-between;
+
+        &__champion {
+          @apply relative;
+
+          &-image {
+            @apply h-16 ring-2 ring-yellow-500/50 rounded-full w-16;
+          }
+
+          &-level {
+            @apply absolute bottom-0 right-0 bg-slate-900 text-white/50 font-bold flex text-[0.5rem]/1 ring-2 ring-yellow-500/50 h-4 w-4 tracking-wider rounded-full items-center justify-center;
+          }
+        }
+
+        &__spells {
+          @apply flex flex-col gap-y-2;
+
+          img { @apply h-7 rounded-md w-7 ring-1 ring-yellow-500/20 }
+        }
+      }
+
+      &__runes {
+        @apply col-span-1 grid grid-cols-1 gap-y-2;
+
+        div {
+          @apply bg-slate-900 flex justify-self-center items-center justify-center rounded-full h-6 w-6 ring-1 ring-yellow-500/20;
+
+          img { @apply h-4 w-4 }
+        }
+      }
+
+      &__stats {
+        @apply md:col-span-2 text-center;
+
+        .kda-score {
+          @apply opacity-60 text-sm mb-1;
+        }
+
+        .kill-participation {
+          @apply text-xs opacity-50;
+        }
+      }
+
+      &__farm {
+        @apply md:col-span-2 text-center text-sm;
+
+        p:not(:first-child) { @apply opacity-60 }
+        p.total-gold { @apply mb-1 }
+        p:last-child { @apply text-xs }
+      }
+
+      &__teams {
+        @apply md:col-span-3 grid grid-cols-[1fr_16px_1fr] gap-x-4 md:col-start-10;
+
+        &-participants {
+          @apply col-span-1 flex flex-col gap-y-2;
+
+          .participant {
+            @apply flex flex-row text-xs items-center gap-x-2;
+          }
+        }
+
+        &-participants[data-team_id="100"] .participant {
+          @apply flex justify-end;
+        }
+
+        .champion-square {
+          @apply w-4 h-4 rounded-full ring-1 ring-yellow-500/50;
+        }
+
+        &-lanes { @apply flex flex-wrap gap-y-2 }
+        &-lanes div { @apply h-4 overflow-hidden }
+      }
+
+      &__items {
+        @apply col-span-2 grid grid-cols-4 gap-x-4 gap-y-1.5;
+
+        .item {
+          @apply bg-slate-900 ring-1 ring-yellow-500/30 flex rounded-md h-8 overflow-hidden justify-center items-center w-8;
+
+          img { @apply h-6 w-6 rounded-lg }
+        }
+      }
+    }
+  }
 }
 
 .match-result-bar {
@@ -20,32 +138,42 @@
   }
 }
 
+.filter-icons .filter.fighter { background-position: 0 0 }
+.filter-icons .filter.tank { background-position: -32px 0 }
+.filter-icons .filter.mage { background-position: -64px 0 }
+.filter-icons .filter.assassin { background-position: -96px 0 }
+.filter-icons .filter.marksman{ background-position:-160px 0 }
+
+.filter-icons .filter.bottom,
+.filter-icons .filter.jungle,
+.filter-icons .filter.middle,
+.filter-icons .filter.support,
+.filter-icons .filter.top {
+  background-image: url("/fe/lol-champ-select/images/champion-grid/filter-icons-disabled.png");
+  background-repeat:no-repeat;
+  background-size:180px
+}
+
+.match-date {
+  @apply col-span-2 row-span-1;
+}
+
+.match-duration {
+  @apply col-span-1;
+}
+
+.match-champion {
+  @apply col-span-1;
+}
+
+.match-info {
+  @apply col-span-2;
+}
+
+.match-kda {
+  @apply col-span-2 row-span-2;
+}
+
 .match-items {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-  align-items: center;
-  min-width: 100px;
-}
-
-.item-icon {
-  width: 22px;
-  height: 22px;
-  border-radius: 4px;
-  object-fit: contain;
-}
-
-.match-others {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-  align-items: center;
-  min-width: 120px;
-}
-
-.champ-icon-sm {
-  width: 24px;
-  height: 24px;
-  border-radius: 4px;
-  object-fit: cover;
+  @apply flex flex-row col-span-3;
 }
