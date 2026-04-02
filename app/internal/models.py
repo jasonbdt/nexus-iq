@@ -1,5 +1,6 @@
 """SQLModel and Pydantic models for the application domain."""
 # pylint: disable=duplicate-code
+import json
 
 from typing import Optional, Self
 from datetime import datetime, timezone
@@ -290,7 +291,11 @@ class MatchParticipant(SQLModel, table=True):
 
     champion_id: int = Field(nullable=False)
     champion_name: str = Field(nullable=False)
+    champion_level: int = Field(nullable=False)
     lane: str = Field(nullable=False)
+
+    summoner_spell_1: int = Field(nullable=False)
+    summoner_spell_2: int = Field(nullable=False)
 
     kills: int = Field(nullable=False)
     deaths: int = Field(nullable=False)
@@ -393,17 +398,43 @@ class MatchParticipantRunesRead(BaseModel):
     stat_perk_offense: int
 
 
+def find_entry_by_key(data: dict, wanted_key: int | str):
+    wanted_key = str(wanted_key)
+
+    return next(
+        (
+            entry
+            for entry in data.get("data", {}).values()
+            if entry.get("key") == wanted_key
+        ),
+        None
+    )
+
+
+def find_rune_by_id(data: dict, wanted_key: int):
+    return next(
+        (
+            entry for entry in data
+            if entry.get("id") == wanted_key
+        )
+    )
+
 class MatchParticipantsRead(BaseModel):
     """Read schema for a match participant."""
 
     champion_id: int
     champion_name: str
+    champion_level: int
     summoner_name: str
     summoner_puuid: str
+    lane: str
     tag_line: str
     kills: int
     deaths: int
     assists: int
+
+    summoner_spell_1: int = Field(exclude=True)
+    summoner_spell_2: int = Field(exclude=True)
 
     kda: float
     total_cs: int
@@ -421,13 +452,50 @@ class MatchParticipantsRead(BaseModel):
     item5: int
     item6: int
 
-    runes: list[MatchParticipantRunesRead]
+    runes: list[MatchParticipantRunesRead] = Field(exclude=True)
 
     @computed_field
     @property
     def riot_id(self: Self) -> str:
         """Get the full RiotID of the match participant."""
         return f"{self.summoner_name}#{self.tag_line}"
+
+    @computed_field
+    @property
+    def spell_1(self: Self) -> Optional[str]:
+        with open('/usr/src/ddragon/cdn/16.7.1/data/en_US/summoner.json') as file_obj:
+            data = json.load(file_obj)
+            entry = find_entry_by_key(data, self.summoner_spell_1)
+            file_obj.close()
+
+            return entry.get('id', None)
+
+    @computed_field
+    @property
+    def spell_2(self: Self) -> Optional[str]:
+        with open('/usr/src/ddragon/cdn/16.7.1/data/en_US/summoner.json') as file_obj:
+            data = json.load(file_obj)
+            entry = find_entry_by_key(data, self.summoner_spell_2)
+            file_obj.close()
+            return entry.get('id', None)
+
+    @computed_field
+    @property
+    def primary_style(self: Self) -> str:
+        with open('/usr/src/ddragon/cdn/16.7.1/data/en_US/runesReforged.json') as file_obj:
+            data = json.load(file_obj)
+            entry = find_rune_by_id(data, self.runes[0].primary_style)
+            file_obj.close()
+            return entry.get("icon", None)
+
+    @computed_field
+    @property
+    def secondary_style(self: Self) -> str:
+        with open('/usr/src/ddragon/cdn/16.7.1/data/en_US/runesReforged.json') as file_obj:
+            data = json.load(file_obj)
+            entry = find_rune_by_id(data, self.runes[0].secondary_style)
+            file_obj.close()
+            return entry.get("icon", None)
 
 
 class MatchTeamBansRead(BaseModel):

@@ -135,6 +135,10 @@ class MatchParticipant(RiotModel):
     team_id: int = Field(alias="teamId")
     win: bool
 
+    # Summoner Spells
+    summoner_spell_1: int = Field(alias="summoner1Id")
+    summoner_spell_2: int = Field(alias="summoner2Id")
+
     # KDA stats
     kills: int
     deaths: int

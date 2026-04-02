@@ -10,6 +10,14 @@ from ..riot_api import RiotAPIDep, RiotPlatform, REGION_TO_PLATFORM
 
 logger = get_logger(__name__)
 
+LANE_ORDER = {
+    "TOP": 0,
+    "JUNGLE": 1,
+    "MIDDLE": 2,
+    "BOTTOM": 3,
+    "UTILITY": 4,
+}
+
 
 def get_match_by_id(match_id: str, session: SessionDep) -> Match | None:
     """Return a single match by its Riot match ID, or None if not found."""
@@ -26,6 +34,10 @@ def get_matches(puuid: str, _platform: RiotPlatform, match_count: int, session: 
     results = session.exec(statement)
     matches = []
     for match in results:
+        for team in match.teams:
+            team.participants.sort(
+                key=lambda participant: LANE_ORDER.get(participant.lane, 999)
+            )
         matches.append(match)
 
     return matches
