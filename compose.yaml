@@ -8,6 +8,7 @@ services:
       - 8000:8000
     environment:
       DDragon_CACHE_DIR: /usr/src/ddragon/cdn
+      DDRAGON_SYNC_ON_START: "false"
 
   frontend:
     build:
@@ -53,7 +54,7 @@ services:
     environment:
       REDIS_HOST: redis
     image: nexus-iq/rq-worker
-    command: rq worker default --with-scheduler
+    command: uv run rq worker default --with-scheduler
     deploy:
       replicas: 3
     depends_on:
