@@ -1,17 +1,12 @@
+# Production-oriented overlay: persistent CDN volume and first-start Data Dragon sync.
+# Usage: docker compose -f compose.yaml -f compose.prod.yaml up -d
+# Do not combine with compose.override.yaml (bind-mount + named volume on cdn conflict).
 services:
   backend:
-    command:
-      - fastapi
-      - run
-      - ./app/main.py
-    env_file: ".env.prod"
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
     environment:
-      NODE_ENV: production
-      BACKEND_URL: http://backend:8000
-    ports:
-      - 8080:8080
+      DDRAGON_SYNC_ON_START: "true"
+    volumes:
+      - ddragon_cdn:/usr/src/ddragon/cdn
+
+volumes:
+  ddragon_cdn:

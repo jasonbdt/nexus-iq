@@ -11,6 +11,8 @@ from sqlalchemy.sql.functions import now as server_now
 from sqlmodel import Column, Field, Relationship, SQLModel
 from pydantic import BaseModel, computed_field
 
+from .ddragon_config import ddragon_data_path
+
 
 def utc_now() -> datetime:
     """Return the current UTC datetime."""
@@ -463,7 +465,7 @@ class MatchParticipantsRead(BaseModel):
     @computed_field
     @property
     def spell_1(self: Self) -> Optional[str]:
-        with open('/usr/src/ddragon/cdn/16.7.1/data/en_US/summoner.json') as file_obj:
+        with open(ddragon_data_path("en_US/summoner.json"), encoding="utf-8") as file_obj:
             data = json.load(file_obj)
             entry = find_entry_by_key(data, self.summoner_spell_1)
             file_obj.close()
@@ -473,7 +475,7 @@ class MatchParticipantsRead(BaseModel):
     @computed_field
     @property
     def spell_2(self: Self) -> Optional[str]:
-        with open('/usr/src/ddragon/cdn/16.7.1/data/en_US/summoner.json') as file_obj:
+        with open(ddragon_data_path("en_US/summoner.json"), encoding="utf-8") as file_obj:
             data = json.load(file_obj)
             entry = find_entry_by_key(data, self.summoner_spell_2)
             file_obj.close()
@@ -482,7 +484,7 @@ class MatchParticipantsRead(BaseModel):
     @computed_field
     @property
     def primary_style(self: Self) -> str:
-        with open('/usr/src/ddragon/cdn/16.7.1/data/en_US/runesReforged.json') as file_obj:
+        with open(ddragon_data_path("en_US/runesReforged.json"), encoding="utf-8") as file_obj:
             data = json.load(file_obj)
             entry = find_rune_by_id(data, self.runes[0].primary_style)
             file_obj.close()
@@ -491,7 +493,7 @@ class MatchParticipantsRead(BaseModel):
     @computed_field
     @property
     def secondary_style(self: Self) -> str:
-        with open('/usr/src/ddragon/cdn/16.7.1/data/en_US/runesReforged.json') as file_obj:
+        with open(ddragon_data_path("en_US/runesReforged.json"), encoding="utf-8") as file_obj:
             data = json.load(file_obj)
             entry = find_rune_by_id(data, self.runes[0].secondary_style)
             file_obj.close()

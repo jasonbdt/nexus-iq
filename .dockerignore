@@ -1,3 +1,7 @@
 __pycache__
 .DS_Store
 .env
+.venv
+
+# Served via bind mount or first-start sync; omit large CDN tree from build context
+ddragon/cdn/

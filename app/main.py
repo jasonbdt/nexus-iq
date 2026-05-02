@@ -1,10 +1,10 @@
 """FastAPI application factory, lifespan, middleware, and top-level routes."""
+import asyncio
 import mimetypes
 import os
 import logging
 import tempfile
 from pathlib import Path
-from uuid import uuid4
 from PIL import Image
 
 from contextlib import asynccontextmanager
@@ -15,6 +15,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
 from .internal.db import create_db_and_tables
+from .internal.ddragon_config import ddragon_cdn_root
+from .internal.ddragon_sync import ensure_ddragon_cached_sync
 from .internal.logging import configure_logging
 from .dependencies import APP_ENV
 from .internal.redis import close_redis, init_redis, RedisDep
@@ -27,6 +29,9 @@ from .routers import auth, coach, matches, rag, summoners, users
 async def lifespan(_app: FastAPI):
     """Initialise and tear down application resources around the request lifecycle."""
     log_level = logging.DEBUG if APP_ENV == "dev" else logging.INFO
+    configure_logging(log_level)
+    log = logging.getLogger(__name__)
+    await asyncio.to_thread(ensure_ddragon_cached_sync, log)
 
     timeout = aiohttp.ClientTimeout(total=10)
     headers = {"X-Riot-Token": os.getenv("RIOT_API_KEY")}
@@ -36,7 +41,6 @@ async def lifespan(_app: FastAPI):
     await init_redis()
     await ensure_collection()
 
-    configure_logging(log_level)
     create_db_and_tables()
 
     try:
@@ -60,12 +64,7 @@ app.include_router(users.router)
 
 # DDragon static assets (profile icons, champion images, etc.)
 # Served at /cdn/... to match DDragon path structure (no /ddragon prefix)
-# Use DDragon_CACHE_DIR env var to override (e.g. /usr/src/ddragon/cdn in Docker)
-_ddragon_cdn = Path(
-    os.getenv("DDragon_CACHE_DIR", "")
-    or str(Path(__file__).resolve().parent.parent / "ddragon" / "cdn")
-)
-_ddragon_cdn = Path(_ddragon_cdn)
+_ddragon_cdn = ddragon_cdn_root()
 
 origins = ["*"]
 
@@ -96,7 +95,9 @@ CHAMPION_FILE_ALIASES = {
     "fiddlesticks": "Fiddlesticks",
 }
 
-BASE_CDN_DIR = Path("/usr/src/ddragon/cdn").resolve()
+BASE_CDN_DIR = _ddragon_cdn
+
+
 def resolve_safe_path(file_path: str) -> Path:
     full_path = (BASE_CDN_DIR / file_path).resolve()
 

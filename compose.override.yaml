@@ -1,7 +1,19 @@
 services:
   backend:
+    develop:
+      watch:
+        - action: sync
+          path: ./app
+          target: /usr/src/app
+          ignore:
+            - .venv/
+        - action: rebuild
+          path: ./pyproject.toml
+    environment:
+      SKIP_DDRAGON_CHOWN: "1"
     volumes:
       - ./app:/usr/src/app
+      - ./ddragon:/usr/src/ddragon
   
   database:
     ports:
