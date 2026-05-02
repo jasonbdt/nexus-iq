@@ -10,6 +10,12 @@ from langchain_core.runnables import RunnableConfig
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel
 
+from ...dependencies import (
+    OPENAI_CHAT_MODEL,
+    OPENAI_CHAT_TEMPERATURE,
+    OPENAI_REASONING_EFFORT,
+)
+
 SYSTEM_PROMPT = """You are “NexusIQ AI Coach”, a League of Legends patch-notes analyst
 and Q&A assistant.
 
@@ -41,10 +47,23 @@ STYLE
 
 ConversationHistory = list[dict[str, str]]  # [{"role": "user"|"assistant", "content": "..."}]
 
-_llm = ChatOpenAI(
-    model="gpt-5-mini",
-    use_responses_api=True,
-    output_version="responses/v1",
+_RESPONSES_KWARGS = {
+    "use_responses_api": True,
+    "output_version": "responses/v1",
+}
+
+_coach_llm = ChatOpenAI(
+    model=OPENAI_CHAT_MODEL,
+    temperature=OPENAI_CHAT_TEMPERATURE,
+    reasoning={"effort": OPENAI_REASONING_EFFORT},
+    **_RESPONSES_KWARGS,
+)
+
+_extraction_llm = ChatOpenAI(
+    model=OPENAI_CHAT_MODEL,
+    temperature=OPENAI_CHAT_TEMPERATURE,
+    reasoning={"effort": "none"},
+    **_RESPONSES_KWARGS,
 )
 
 
@@ -106,9 +125,9 @@ def generate_response(
     *,
     thread_id: str | None = None,
 ) -> str:
-    """Generate a response using GPT-5-mini with retrieved context."""
+    """Generate a coach reply with retrieved patch-note context."""
     messages = _coach_messages(question, context, history or [])
-    msg = _llm.invoke(messages, **_invoke_config(thread_id))
+    msg = _coach_llm.invoke(messages, **_invoke_config(thread_id))
     return _text_blocks_join(cast(AIMessage, msg).content)
 
 
@@ -119,9 +138,9 @@ def stream_response(
     *,
     thread_id: str | None = None,
 ):
-    """Yield raw text delta strings from a streaming GPT-5-mini response."""
+    """Yield raw text delta strings from a streaming coach response."""
     messages = _coach_messages(question, context, history or [])
-    for chunk in _llm.stream(messages, **_invoke_config(thread_id)):
+    for chunk in _coach_llm.stream(messages, **_invoke_config(thread_id)):
         msg_chunk = cast(AIMessageChunk, chunk)
         if getattr(msg_chunk, "chunk_position", None) == "last":
             continue
@@ -191,7 +210,7 @@ def _normalize_patch_versions(
     return DeterminedPatchVersions(gte=gte_f, lte=lte_f)
 
 
-_patch_versions_llm = _llm.with_structured_output(DeterminedPatchVersions)
+_patch_versions_llm = _extraction_llm.with_structured_output(DeterminedPatchVersions)
 
 
 def determine_patch_versions(
@@ -227,7 +246,7 @@ _KEYWORDS_INSTRUCTION = (
     "If the question is general and mentions no specific entity, return an empty list."
 )
 
-_keywords_llm = _llm.with_structured_output(ExtractedKeywords)
+_keywords_llm = _extraction_llm.with_structured_output(ExtractedKeywords)
 
 
 def extract_keywords(question: str, *, thread_id: str | None = None) -> list[str]:

@@ -1,9 +1,20 @@
-"""Application-wide configuration constants loaded from environment variables."""
+"""Application-wide configuration constants loaded from environment variables.
+
+OpenAI coach chat (see ``app.internal.services.llm``):
+
+- ``OPENAI_CHAT_MODEL`` — chat model id (default ``gpt-5.4-nano-2026-03-17``).
+- ``OPENAI_CHAT_TEMPERATURE`` — sampling for coach/RAG replies only (default ``0.2``).
+- ``OPENAI_REASONING_EFFORT`` — Responses API ``reasoning.effort`` for coach (default ``minimal``).
+"""
 
 import os
 
 
 APP_ENV = os.getenv("APP_ENV", "dev")
+
+OPENAI_CHAT_MODEL = os.getenv("OPENAI_CHAT_MODEL", "gpt-5.4-nano-2026-03-17")
+OPENAI_CHAT_TEMPERATURE = float(os.getenv("OPENAI_CHAT_TEMPERATURE", "0.2"))
+OPENAI_REASONING_EFFORT = os.getenv("OPENAI_REASONING_EFFORT", "none").strip().lower()
 
 DB_USER = os.getenv("DATABASE_USER")
 DB_NAME = os.getenv("DATABASE_NAME")
