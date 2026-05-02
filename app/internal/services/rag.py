@@ -1,8 +1,11 @@
-"""Shared RAG context-building helper used by the coach and RAG routers."""
+"""Shared RAG retrieval used by coach and RAG routers (retrieve → context string).
 
-from .embeddings import embed_text
+Follows the two-step pattern from LangChain RAG docs: similarity search, then the
+caller runs generation with ``app.internal.services.llm``.
+"""
+
 from .llm import DeterminedPatchVersions
-from .vector_store import search_similar
+from .vector_store import patch_notes_query_filter, patch_vector_store
 
 
 async def build_rag_context(
@@ -11,21 +14,20 @@ async def build_rag_context(
     keywords: list[str] | None,
     top_k: int = 15,
 ) -> str:
-    """Embed *question*, search for similar patch-note chunks, and return a context string.
+    """Retrieve similar patch-note chunks and return a context string.
 
-    Args:
-        question: The user question (or resolved question) to embed.
-        patch_versions: Version range filter returned by ``determine_patch_versions``.
-        keywords: Optional keyword list returned by ``extract_keywords``.
-        top_k: Maximum number of chunks to include in the context.
-
-    Returns:
-        A single string with each matching chunk prefixed by its patch version,
-        separated by horizontal rules.
+    Step 1 (retrieve): ``QdrantVectorStore.similarity_search`` with version / keyword
+    filters. Step 2 (generate) is performed by the caller via ``llm`` helpers.
     """
-    query_embedding = await embed_text(question)
-    results = await search_similar(
-        query_embedding, patch_versions, top_k=top_k, keywords=keywords or None
+    store = patch_vector_store()
+    qfilter = patch_notes_query_filter(patch_versions, keywords or None)
+    docs = await store.asimilarity_search(
+        query=question,
+        k=top_k,
+        filter=qfilter,
     )
-    parts = [f"[Patch {r['patch_version']}]\n{r['text']}" for r in results]
+    parts = []
+    for doc in docs:
+        pv = doc.metadata.get("patch_version", "")
+        parts.append(f"[Patch {pv}]\n{doc.page_content}")
     return "\n\n---\n\n".join(parts)

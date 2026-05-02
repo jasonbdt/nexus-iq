@@ -137,31 +137,80 @@ class DeterminedPatchVersions(BaseModel):
     gte: float | str
 
 
-_PATCH_VERSION_INSTRUCTION = (
-    "You are a text analyser. Extract the League of Legends patch version range "
-    "the user is asking about. Return gte (lowest version, as a float) and lte "
-    "(highest version, as a float). "
-    "ALWAYS return numeric floats. "
-    "If the user does not specify a minimum version, use 0.0. "
-    "If the user does not specify a maximum version, use 26.4. "
-    "Never return strings like 'unspecified' — always use a numeric default."
-)
+def _patch_version_instruction(*, catalog_latest_patch: float | None) -> str:
+    """System prompt for structured patch-range extraction."""
+    latest_rule = (
+        f"If the user asks for the latest, newest, or current patch (any language, "
+        f'e.g. German "aktuellster Patch"), use {catalog_latest_patch} as lte '
+        f"(the highest version in the range). "
+        if catalog_latest_patch is not None
+        else ""
+    )
+    default_max = (
+        str(catalog_latest_patch)
+        if catalog_latest_patch is not None
+        else "99.99"
+    )
+    return (
+        "You are a text analyser. Extract the League of Legends patch version range "
+        "the user is asking about. Return gte (lowest version in the range, as a float) "
+        "and lte (highest version in the range, as a float). "
+        "ALWAYS return numeric floats. "
+        "If the user does not specify a minimum version, use 0.0. "
+        f"If the user does not specify a maximum version, use {default_max} as lte. "
+        f"{latest_rule}"
+        "Never return strings like 'unspecified' — always use a numeric default."
+    )
+
+
+def _float_patch_bound(value: float | str) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _normalize_patch_versions(
+    raw: DeterminedPatchVersions,
+    *,
+    catalog_latest_patch: float | None,
+) -> DeterminedPatchVersions:
+    """Fix inverted bounds and stale lte when the model echoed an old default."""
+    gte_f = _float_patch_bound(raw.gte)
+    lte_f = _float_patch_bound(raw.lte)
+
+    if catalog_latest_patch is not None:
+        if lte_f < gte_f:
+            lte_f = catalog_latest_patch
+        lte_f = min(lte_f, catalog_latest_patch)
+        gte_f = min(gte_f, catalog_latest_patch)
+
+    if gte_f > lte_f:
+        gte_f, lte_f = lte_f, gte_f
+
+    return DeterminedPatchVersions(gte=gte_f, lte=lte_f)
+
 
 _patch_versions_llm = _llm.with_structured_output(DeterminedPatchVersions)
 
 
 def determine_patch_versions(
-    question: str, *, thread_id: str | None = None
+    question: str,
+    *,
+    catalog_latest_patch: float | None = None,
+    thread_id: str | None = None,
 ) -> DeterminedPatchVersions:
     """Determine the patch versions the user want to know."""
+    instr = _patch_version_instruction(catalog_latest_patch=catalog_latest_patch)
     messages = [
-        SystemMessage(content=_PATCH_VERSION_INSTRUCTION),
+        SystemMessage(content=instr),
         HumanMessage(content=question),
     ]
-    return cast(
+    raw = cast(
         DeterminedPatchVersions,
         _patch_versions_llm.invoke(messages, **_invoke_config(thread_id)),
     )
+    return _normalize_patch_versions(raw, catalog_latest_patch=catalog_latest_patch)
 
 
 class ExtractedKeywords(BaseModel):

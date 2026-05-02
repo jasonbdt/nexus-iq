@@ -23,6 +23,7 @@ from ..internal.models import (
     CoachSessionRead,
     User,
 )
+from ..internal.controllers import patches as PatchNotesController
 from ..internal.services.llm import (
     ConversationHistory,
     stream_response,
@@ -67,7 +68,12 @@ async def _build_context(
     thread_id: str | None = None,
 ) -> str:
     resolved = _resolved_question(question, history or [])
-    patch_versions = determine_patch_versions(resolved, thread_id=thread_id)
+    catalog_latest = await PatchNotesController.get_latest_patch_version_float()
+    patch_versions = determine_patch_versions(
+        resolved,
+        catalog_latest_patch=catalog_latest,
+        thread_id=thread_id,
+    )
     keywords = extract_keywords(resolved, thread_id=thread_id)
     return await build_rag_context(question, patch_versions, keywords, top_k=top_k)
 

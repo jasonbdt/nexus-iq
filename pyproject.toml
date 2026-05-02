@@ -20,6 +20,10 @@ dependencies = [
     "argon2-cffi==25.1.0",
     "langchain-openai==1.1.9",
     "langsmith==0.8.0",
+    "langchain==1.2.17",
+    "langchain-community==0.4.1",
+    "langchain-text-splitters==1.1.2",
+    "langchain-qdrant==1.1.0",
 ]
 
 [dependency-groups]

@@ -1,6 +1,7 @@
 """Controller for fetching and parsing LoL patch notes."""
 
 import re
+import time
 
 from bs4 import BeautifulSoup
 
@@ -12,7 +13,11 @@ logger = get_logger(__name__)
 
 BASE_URL = "https://www.leagueoflegends.com/en-us/news/game-updates"
 PATCH_LISTING_URL = "https://www.leagueoflegends.com/en-us/news/tags/patch-notes/"
-_BROWSER_HEADERS = {
+# Cache for ``get_latest_patch_version_float``: (latest_float, monotonic_timestamp).
+_latest_patch_cache_box: list[tuple[float, float] | None] = [None]
+_LATEST_PATCH_TTL_SEC = 900.0
+
+PATCH_NOTES_BROWSER_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
         "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -29,7 +34,7 @@ async def list_available_patches() -> list[dict]:
     ``url`` (the absolute URL to the patch notes article).
     """
     session = get_session()
-    request = await session.get(PATCH_LISTING_URL, headers=_BROWSER_HEADERS)
+    request = await session.get(PATCH_LISTING_URL, headers=PATCH_NOTES_BROWSER_HEADERS)
     if not request.ok:
         logger.warning("Patch listing page returned %s", request.status)
         return []
@@ -68,6 +73,31 @@ async def list_available_patches() -> list[dict]:
     return patches
 
 
+async def get_latest_patch_version_float() -> float | None:
+    """Return the newest patch version on the official listing (e.g. 26.9), cached briefly."""
+    now = time.monotonic()
+    cached = _latest_patch_cache_box[0]
+    if cached is not None:
+        cached_val, cached_at = cached
+        if now - cached_at < _LATEST_PATCH_TTL_SEC:
+            return cached_val
+
+    patches = await list_available_patches()
+    if not patches:
+        return None
+    try:
+        latest = float(patches[0]["version"])
+    except (TypeError, ValueError):
+        return None
+    _latest_patch_cache_box[0] = (latest, now)
+    return latest
+
+
+def clear_latest_patch_version_cache() -> None:
+    """Drop cached latest patch (tests only)."""
+    _latest_patch_cache_box[0] = None
+
+
 async def resolve_patch_url(patch_version: str) -> str | None:
     """Find the canonical URL for *patch_version* (e.g. ``"26.4"``) by
     consulting the live patch-notes listing page.
@@ -79,43 +109,6 @@ async def resolve_patch_url(patch_version: str) -> str | None:
         if entry["version"] == patch_version:
             return entry["url"]
     return None
-
-
-async def parse_patch_notes(patch_version: str):
-    """Fetch and parse patch notes for the given patch version into text chunks."""
-    url = await resolve_patch_url(patch_version)
-
-    if url is None:
-        logger.warning("Could not resolve URL for patch %s", patch_version)
-        return None
-
-    logger.info("Fetching patch notes from %s", url)
-    session = get_session()
-    request = await session.get(url, headers=_BROWSER_HEADERS)
-
-    if not request.ok:
-        logger.warning("Patch notes page returned %s for %s", request.status, url)
-        return None
-
-    response = await request.text()
-    soup = BeautifulSoup(response, "html.parser")
-    patch_notes = soup.find("div", attrs={"id": "patch-notes-container"})
-
-    if patch_notes is None:
-        logger.warning("patch-notes-container not found at %s", url)
-        return None
-
-    all_chunks = []
-    chunks = chunk_text(patch_notes.get_text(" ", strip=True))
-
-    for i, chunk in enumerate(chunks):
-        all_chunks.append({
-            "text": chunk,
-            "source": url,
-            "chunk_index": i
-        })
-
-    return all_chunks
 
 
 def chunk_text(text: str, max_chars: int = 1500, overlap: int = 300) -> list[str]:
