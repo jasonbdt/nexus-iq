@@ -1,11 +1,13 @@
-"""OpenAI LLM helpers for response generation, streaming, and structured extraction."""
+"""LangChain ChatOpenAI helpers using OpenAI's Responses API.
 
-import os
+Covers generation, streaming, and structured extraction.
+"""
 
-from openai import OpenAI
+from typing import cast
+
+from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage, SystemMessage
+from langchain_openai import ChatOpenAI
 from pydantic import BaseModel
-
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 SYSTEM_PROMPT = """You are “NexusIQ AI Coach”, a League of Legends patch-notes analyst
 and Q&A assistant.
@@ -36,8 +38,37 @@ STYLE
 - Do not repeat the user’s question unless needed for disambiguation.
 - Never mention internal policies, system messages, or tool usage."""
 
-
 ConversationHistory = list[dict[str, str]]  # [{"role": "user"|"assistant", "content": "..."}]
+
+_llm = ChatOpenAI(
+    model="gpt-5-mini",
+    use_responses_api=True,
+    output_version="responses/v1",
+)
+
+
+def _text_blocks_join(content: str | list[str | dict]) -> str:
+    """Flatten AIMessage / chunk content into plain text."""
+    if isinstance(content, str):
+        return content
+    parts: list[str] = []
+    for block in content:
+        if isinstance(block, dict) and block.get("type") == "text":
+            text = block.get("text")
+            if text:
+                parts.append(str(text))
+    return "".join(parts)
+
+
+def _coach_messages(
+    question: str,
+    context: str | None,
+    history: ConversationHistory,
+) -> list[SystemMessage | HumanMessage]:
+    return [
+        SystemMessage(content=SYSTEM_PROMPT),
+        HumanMessage(content=_build_input(question, context, history)),
+    ]
 
 
 def _build_input(question: str, context: str | None, history: ConversationHistory) -> str:
@@ -61,12 +92,9 @@ def generate_response(
     history: ConversationHistory | None = None,
 ) -> str:
     """Generate a response using GPT-5-mini with retrieved context."""
-    response = client.responses.create(
-        model="gpt-5-mini",
-        instructions=SYSTEM_PROMPT,
-        input=_build_input(question, context, history or []),
-    )
-    return response.output_text
+    messages = _coach_messages(question, context, history or [])
+    msg = _llm.invoke(messages)
+    return _text_blocks_join(cast(AIMessage, msg).content)
 
 
 def stream_response(
@@ -75,15 +103,14 @@ def stream_response(
     history: ConversationHistory | None = None,
 ):
     """Yield raw text delta strings from a streaming GPT-5-mini response."""
-    with client.responses.stream(
-        model="gpt-5-mini",
-        instructions=SYSTEM_PROMPT,
-        input=_build_input(question, context, history or []),
-    ) as stream:
-        for event in stream:
-            # The Responses API emits response.output_text.delta events
-            if event.type == "response.output_text.delta":
-                yield event.delta
+    messages = _coach_messages(question, context, history or [])
+    for chunk in _llm.stream(messages):
+        msg_chunk = cast(AIMessageChunk, chunk)
+        if getattr(msg_chunk, "chunk_position", None) == "last":
+            continue
+        delta = _text_blocks_join(msg_chunk.content)
+        if delta:
+            yield delta
 
 
 class DeterminedPatchVersions(BaseModel):
@@ -93,29 +120,43 @@ class DeterminedPatchVersions(BaseModel):
     gte: float | str
 
 
+_PATCH_VERSION_INSTRUCTION = (
+    "You are a text analyser. Extract the League of Legends patch version range "
+    "the user is asking about. Return gte (lowest version, as a float) and lte "
+    "(highest version, as a float). "
+    "ALWAYS return numeric floats. "
+    "If the user does not specify a minimum version, use 0.0. "
+    "If the user does not specify a maximum version, use 26.4. "
+    "Never return strings like 'unspecified' — always use a numeric default."
+)
+
+_patch_versions_llm = _llm.with_structured_output(DeterminedPatchVersions)
+
+
 def determine_patch_versions(question: str) -> DeterminedPatchVersions:
     """Determine the patch versions the user want to know."""
-    response = client.responses.parse(
-        model="gpt-5-mini",
-        instructions=(
-            "You are a text analyser. Extract the League of Legends patch version range "
-            "the user is asking about. Return gte (lowest version, as a float) and lte "
-            "(highest version, as a float). "
-            "ALWAYS return numeric floats. "
-            "If the user does not specify a minimum version, use 0.0. "
-            "If the user does not specify a maximum version, use 26.4. "
-            "Never return strings like 'unspecified' — always use a numeric default."
-        ),
-        input=question,
-        text_format=DeterminedPatchVersions,
-    )
-    return response.output_parsed
+    messages = [
+        SystemMessage(content=_PATCH_VERSION_INSTRUCTION),
+        HumanMessage(content=question),
+    ]
+    return cast(DeterminedPatchVersions, _patch_versions_llm.invoke(messages))
 
 
 class ExtractedKeywords(BaseModel):
     """Structured output model for keyword extraction from a user question."""
 
     keywords: list[str]
+
+
+_KEYWORDS_INSTRUCTION = (
+    "You are a League of Legends expert. "
+    "Extract every champion name, item name, or rune name explicitly mentioned "
+    "in the user's question. Return them exactly as they appear in patch notes "
+    "(e.g. 'Malphite', 'Trinity Force', 'Conqueror'). "
+    "If the question is general and mentions no specific entity, return an empty list."
+)
+
+_keywords_llm = _llm.with_structured_output(ExtractedKeywords)
 
 
 def extract_keywords(question: str) -> list[str]:
@@ -125,16 +166,9 @@ def extract_keywords(question: str) -> list[str]:
     relevant patch-note chunks.  Returns an empty list when the question is
     general (e.g. "what changed this patch?").
     """
-    response = client.responses.parse(
-        model="gpt-5-mini",
-        instructions=(
-            "You are a League of Legends expert. "
-            "Extract every champion name, item name, or rune name explicitly mentioned "
-            "in the user's question. Return them exactly as they appear in patch notes "
-            "(e.g. 'Malphite', 'Trinity Force', 'Conqueror'). "
-            "If the question is general and mentions no specific entity, return an empty list."
-        ),
-        input=question,
-        text_format=ExtractedKeywords,
-    )
-    return response.output_parsed.keywords if response.output_parsed else []
+    messages = [
+        SystemMessage(content=_KEYWORDS_INSTRUCTION),
+        HumanMessage(content=question),
+    ]
+    parsed = cast(ExtractedKeywords | None, _keywords_llm.invoke(messages))
+    return parsed.keywords if parsed else []
