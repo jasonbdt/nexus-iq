@@ -4,6 +4,7 @@ import json
 
 from fastapi.routing import APIRouter
 from fastapi.responses import StreamingResponse
+from langsmith import uuid7
 from starlette.responses import JSONResponse
 
 from ..internal.controllers import patches as PatchNotesController
@@ -66,28 +67,32 @@ async def index(patch_version: str):
         "count": len(chunks)
     }, status_code=200)
 
-async def _build_context(question: str, top_k: int = 15) -> str:
+async def _build_context(
+    question: str, top_k: int = 15, *, thread_id: str | None = None
+) -> str:
     """Build RAG context by embedding the question and searching for similar chunks."""
-    patch_versions = determine_patch_versions(question)
-    keywords = extract_keywords(question)
+    patch_versions = determine_patch_versions(question, thread_id=thread_id)
+    keywords = extract_keywords(question, thread_id=thread_id)
     return await build_rag_context(question, patch_versions, keywords, top_k=top_k)
 
 
 @router.post("/query")
 async def query_rag(question: str, top_k: int = 5):
     """Query the RAG system about patch notes (full response)."""
-    context = await _build_context(question, top_k)
-    answer = generate_response(question, context)
+    thread_id = str(uuid7())
+    context = await _build_context(question, top_k, thread_id=thread_id)
+    answer = generate_response(question, context, thread_id=thread_id)
     return JSONResponse(content={"message": answer}, status_code=200)
 
 
 @router.post("/query/stream")
 async def query_rag_stream(question: str, top_k: int = 5):
     """Query the RAG system and stream the response as Server-Sent Events."""
-    context = await _build_context(question, top_k)
+    thread_id = str(uuid7())
+    context = await _build_context(question, top_k, thread_id=thread_id)
 
     def event_generator():
-        for delta in stream_response(question, context):
+        for delta in stream_response(question, context, thread_id=thread_id):
             # Each SSE message: data: <json>\n\n
             yield f"data: {json.dumps({'delta': delta})}\n\n"
         yield "data: [DONE]\n\n"

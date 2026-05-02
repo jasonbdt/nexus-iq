@@ -3,9 +3,10 @@
 Covers generation, streaming, and structured extraction.
 """
 
-from typing import cast
+from typing import Any, cast
 
 from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage, SystemMessage
+from langchain_core.runnables import RunnableConfig
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel
 
@@ -45,6 +46,18 @@ _llm = ChatOpenAI(
     use_responses_api=True,
     output_version="responses/v1",
 )
+
+
+def _thread_config(thread_id: str | None) -> RunnableConfig | None:
+    """LangSmith threads: https://docs.langchain.com/langsmith/threads"""
+    if thread_id is None:
+        return None
+    return RunnableConfig(metadata={"thread_id": thread_id})
+
+
+def _invoke_config(thread_id: str | None) -> dict[str, Any]:
+    cfg = _thread_config(thread_id)
+    return {"config": cfg} if cfg is not None else {}
 
 
 def _text_blocks_join(content: str | list[str | dict]) -> str:
@@ -90,10 +103,12 @@ def generate_response(
     question: str,
     context: str | None,
     history: ConversationHistory | None = None,
+    *,
+    thread_id: str | None = None,
 ) -> str:
     """Generate a response using GPT-5-mini with retrieved context."""
     messages = _coach_messages(question, context, history or [])
-    msg = _llm.invoke(messages)
+    msg = _llm.invoke(messages, **_invoke_config(thread_id))
     return _text_blocks_join(cast(AIMessage, msg).content)
 
 
@@ -101,10 +116,12 @@ def stream_response(
     question: str,
     context: str | None,
     history: ConversationHistory | None = None,
+    *,
+    thread_id: str | None = None,
 ):
     """Yield raw text delta strings from a streaming GPT-5-mini response."""
     messages = _coach_messages(question, context, history or [])
-    for chunk in _llm.stream(messages):
+    for chunk in _llm.stream(messages, **_invoke_config(thread_id)):
         msg_chunk = cast(AIMessageChunk, chunk)
         if getattr(msg_chunk, "chunk_position", None) == "last":
             continue
@@ -133,13 +150,18 @@ _PATCH_VERSION_INSTRUCTION = (
 _patch_versions_llm = _llm.with_structured_output(DeterminedPatchVersions)
 
 
-def determine_patch_versions(question: str) -> DeterminedPatchVersions:
+def determine_patch_versions(
+    question: str, *, thread_id: str | None = None
+) -> DeterminedPatchVersions:
     """Determine the patch versions the user want to know."""
     messages = [
         SystemMessage(content=_PATCH_VERSION_INSTRUCTION),
         HumanMessage(content=question),
     ]
-    return cast(DeterminedPatchVersions, _patch_versions_llm.invoke(messages))
+    return cast(
+        DeterminedPatchVersions,
+        _patch_versions_llm.invoke(messages, **_invoke_config(thread_id)),
+    )
 
 
 class ExtractedKeywords(BaseModel):
@@ -159,7 +181,7 @@ _KEYWORDS_INSTRUCTION = (
 _keywords_llm = _llm.with_structured_output(ExtractedKeywords)
 
 
-def extract_keywords(question: str) -> list[str]:
+def extract_keywords(question: str, *, thread_id: str | None = None) -> list[str]:
     """Extract specific named entities (champions, items, runes) from the question.
 
     Returns a list of proper-noun keywords that should appear verbatim in the
@@ -170,5 +192,8 @@ def extract_keywords(question: str) -> list[str]:
         SystemMessage(content=_KEYWORDS_INSTRUCTION),
         HumanMessage(content=question),
     ]
-    parsed = cast(ExtractedKeywords | None, _keywords_llm.invoke(messages))
+    parsed = cast(
+        ExtractedKeywords | None,
+        _keywords_llm.invoke(messages, **_invoke_config(thread_id)),
+    )
     return parsed.keywords if parsed else []

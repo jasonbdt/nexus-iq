@@ -9,6 +9,7 @@ from typing import Annotated
 from fastapi import Depends, HTTPException, status
 from fastapi.routing import APIRouter
 from fastapi.responses import StreamingResponse
+from langsmith import uuid7
 from sqlmodel import select, desc
 
 from ..internal.auth import get_current_active_user
@@ -62,10 +63,12 @@ async def _build_context(
     question: str,
     history: ConversationHistory | None = None,
     top_k: int = 15,
+    *,
+    thread_id: str | None = None,
 ) -> str:
     resolved = _resolved_question(question, history or [])
-    patch_versions = determine_patch_versions(resolved)
-    keywords = extract_keywords(resolved)
+    patch_versions = determine_patch_versions(resolved, thread_id=thread_id)
+    keywords = extract_keywords(resolved, thread_id=thread_id)
     return await build_rag_context(question, patch_versions, keywords, top_k=top_k)
 
 
@@ -91,7 +94,11 @@ def list_sessions(user: CurrentUser, db: SessionDep):
 @router.post("/sessions", response_model=CoachSessionRead, status_code=status.HTTP_201_CREATED)
 def create_session(payload: CoachSessionCreate, user: CurrentUser, db: SessionDep):
     """Create a new empty coaching session."""
-    coach_session = CoachSession(user_id=user.id, title=payload.title)
+    coach_session = CoachSession(
+        user_id=user.id,
+        title=payload.title,
+        langsmith_thread_id=str(uuid7()),
+    )
     db.add(coach_session)
     db.commit()
     db.refresh(coach_session)
@@ -169,6 +176,10 @@ async def chat_stream(session_id: int, question: str, user: CurrentUser, db: Ses
     """
     coach_session = _get_session_or_404(session_id, user, db)
 
+    if coach_session.langsmith_thread_id is None:
+        coach_session.langsmith_thread_id = str(uuid7())
+        db.add(coach_session)
+
     # Load prior messages for conversation history (before persisting the new one)
     prior_messages = db.exec(
         select(CoachMessage)
@@ -189,15 +200,19 @@ async def chat_stream(session_id: int, question: str, user: CurrentUser, db: Ses
         db.add(coach_session)
 
     db.commit()
+    db.refresh(coach_session)
+    thread_id = coach_session.langsmith_thread_id
 
     # Build RAG context, resolving pronouns/references via conversation history
-    context = await _build_context(question, history=history)
+    context = await _build_context(question, history=history, thread_id=thread_id)
 
     # Collect the full response while streaming so we can persist it
     collected: list[str] = []
 
     def event_generator():
-        for delta in stream_response(question, context, history=history):
+        for delta in stream_response(
+            question, context, history=history, thread_id=thread_id
+        ):
             collected.append(delta)
             yield f"data: {json.dumps({'delta': delta})}\n\n"
 

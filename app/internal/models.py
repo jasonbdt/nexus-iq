@@ -642,6 +642,12 @@ class CoachSession(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     user_id: int = Field(nullable=False, foreign_key="users.id", index=True)
     title: str = Field(nullable=False, default="New Session", max_length=200)
+    langsmith_thread_id: str | None = Field(
+        default=None,
+        max_length=36,
+        nullable=True,
+        description="UUID v7 string for LangSmith thread grouping",
+    )
 
     created_at: datetime = Field(
         default_factory=utc_now,
