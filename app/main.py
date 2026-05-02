@@ -4,15 +4,15 @@ import mimetypes
 import os
 import logging
 import tempfile
+from contextlib import asynccontextmanager, suppress
 from pathlib import Path
-from PIL import Image
-
-from contextlib import asynccontextmanager
 
 import aiohttp
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from langchain_core.tracers.langchain import wait_for_all_tracers
+from PIL import Image
 
 from .internal.db import create_db_and_tables
 from .internal.ddragon_config import ddragon_cdn_root
@@ -46,6 +46,8 @@ async def lifespan(_app: FastAPI):
     try:
         yield
     finally:
+        with suppress(Exception):
+            wait_for_all_tracers()
         await close_redis()
         await close_session()
 

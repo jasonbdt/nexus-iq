@@ -10,6 +10,8 @@ os.environ.setdefault("DATABASE_NAME", "test")
 os.environ.setdefault("DATABASE_PASSWORD", "test")
 os.environ.setdefault("RIOT_API_KEY", "test-key")
 os.environ.setdefault("OPENAI_API_KEY", "test-openai-key")
+# LangSmith: no traces during pytest (overrides shell / compose env when tests run).
+os.environ["LANGSMITH_TRACING"] = "false"
 os.environ.setdefault("APP_KEY", "12345678-1234-5678-1234-567812345678")
 os.environ.setdefault("QDRANT_HOST", "localhost")
 os.environ.setdefault("QDRANT_PORT", "6333")
