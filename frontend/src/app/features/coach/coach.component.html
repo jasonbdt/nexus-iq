@@ -37,12 +37,8 @@
             [class.active]="activeSessionId() === session.id"
             (click)="selectSession(session.id)"
           >
-            <mat-icon class="session-item-icon">chat_bubble_outline</mat-icon>
             <div class="session-item-body">
               <p class="session-item-title">{{ session.title }}</p>
-              <p class="session-item-meta">
-                {{ session.updatedAt | date: 'MMM d, HH:mm' }}
-              </p>
             </div>
             <button
               mat-icon-button
@@ -71,14 +67,7 @@
       <div class="chat-header">
         <div class="chat-header-left">
           <p class="chat-session-title">{{ activeSession.title }}</p>
-          <p class="chat-session-meta">
-            Started {{ activeSession.createdAt | date: 'MMM d, y · HH:mm' }}
-          </p>
         </div>
-        <span class="chat-status-badge" [class.active]="!loading()" [class.thinking]="loading()">
-          <span class="status-dot"></span>
-          {{ loading() ? 'Thinking…' : 'Ready' }}
-        </span>
       </div>
 
       <!-- Messages -->
@@ -111,34 +100,33 @@
         } @else {
           <!-- Message thread -->
           @for (msg of activeSession.messages; track msg.timestamp) {
-            <div class="msg-row" [class.msg-user]="msg.role === 'user'" [class.msg-assistant]="msg.role === 'assistant'">
-
-              @if (msg.role === 'assistant') {
-                <div class="msg-avatar assistant-avatar">
-                  <mat-icon>smart_toy</mat-icon>
-                </div>
-              }
-
-              <div class="msg-bubble" [class.streaming]="msg.streaming">
-                @if (msg.streaming && msg.content === '') {
-                  <span class="typing-dot"></span>
-                  <span class="typing-dot"></span>
-                  <span class="typing-dot"></span>
-                } @else {
+            @if (msg.role === 'user') {
+              <div class="msg-row msg-row--user">
+                <div class="msg-bubble msg-bubble--user">
                   <p class="msg-text">{{ msg.content }}</p>
-                  @if (!msg.streaming) {
-                    <span class="msg-time">{{ msg.timestamp | date: 'HH:mm' }}</span>
-                  }
+                </div>
+              </div>
+            } @else {
+              <div class="coach-assistant-turn">
+                @if (msg.streaming || msg.thoughtSeconds != null) {
+                  <div class="coach-turn-meta">
+                    @if (msg.reasoningSummary) {
+                      <p class="coach-reasoning-summary">{{ msg.reasoningSummary }}</p>
+                    }
+                    @if (msg.thoughtSeconds != null) {
+                      <span class="coach-turn-thought">Thought for {{ msg.thoughtSeconds }}s.</span>
+                    } @else if (msg.streaming) {
+                      <span class="coach-status-shimmer">{{ pipelineStatus() ?? 'Working…' }}</span>
+                    }
+                  </div>
+                }
+                @if (msg.content) {
+                  <div class="msg-bubble msg-bubble--assistant" [class.streaming]="msg.streaming">
+                    <markdown class="coach-md" [data]="msg.content"></markdown>
+                  </div>
                 }
               </div>
-
-              @if (msg.role === 'user') {
-                <div class="msg-avatar user-avatar">
-                  {{ authService.currentUser()?.avatarName?.charAt(0)?.toUpperCase() || 'U' }}
-                </div>
-              }
-
-            </div>
+            }
           }
         }
 

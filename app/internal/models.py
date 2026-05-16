@@ -674,6 +674,11 @@ class CoachMessage(SQLModel, table=True):
     session_id: int = Field(nullable=False, foreign_key="coach_sessions.id", index=True)
     role: str = Field(nullable=False)          # "user" | "assistant"
     content: str = Field(nullable=False)
+    thought_seconds: int | None = Field(
+        default=None,
+        nullable=True,
+        description="Seconds until first output token, or full stream if none.",
+    )
 
     created_at: datetime = Field(
         default_factory=utc_now,
@@ -690,6 +695,7 @@ class CoachMessageRead(BaseModel):
     role: str
     content: str
     created_at: datetime
+    thought_seconds: int | None = None
 
 
 class CoachSessionRead(BaseModel):

@@ -36,6 +36,7 @@ flowchart TB
 - **Docker & Docker Compose** (required)
 - **Riot API key** – obtain from [Riot Developer Portal](https://developer.riotgames.com/)
 - **OpenAI API key** – required for AI coaching features
+- **[uv](https://docs.astral.sh/uv/getting-started/installation/)** (optional) – install if you run backend tests, pylint, or Python dev scripts locally outside Docker
 
 ## Getting Started
 
@@ -55,11 +56,42 @@ docker compose watch frontend
 
 The override file adds pgAdmin and volume mounts for hot-reloading the backend.
 
+## Python dev dependencies (uv)
+
+The backend uses [uv](https://github.com/astral-sh/uv) for lockfiles and virtualenvs. **Production/runtime** libraries come from `[project] dependencies` in `pyproject.toml`. **Developer-only** tools (pytest, pylint, pytest plugins, `python-dotenv`, etc.) are listed under `[dependency-groups] dev` — they are **not** installed unless you include that group.
+
+### Commands developers should run
+
+From the **repository root**:
+
+1. **Install Python runtime + dev dependencies** (use this for local backend work, tests, and lint):
+
+   ```bash
+   uv sync --group dev
+   ```
+
+2. **Runtime only** (no pytest/pylint/dotenv — e.g. if you only need a minimal venv to experiment):
+
+   ```bash
+   uv sync
+   ```
+
+3. **If you already ran `uv sync` and later need dev tools**, run step 1 again — uv will add the `dev` group on top of the existing environment.
+
+Always prefer **`uv run <command>`** from the repo root so the correct venv and lockfile are used, for example:
+
+```bash
+uv run pytest
+uv run pylint app/
+uv run python -m app.ai.scripts.print_mermaid
+```
+
 ## Unit Tests and Linting
 
-- **Backend tests:** `pytest` (from repo root; `tests/conftest.py` sets env defaults)
+- **Backend tests:** `uv run pytest` (from repo root; `tests/conftest.py` sets env defaults when vars are unset)
 - **Frontend tests:** `cd frontend && ng test` (Vitest)
-- **Backend lint:** `pylint app/` (from repo root)
+- **Backend lint:** `uv run pylint app/` (from repo root; requires dev group)
+- **Coach graph (Mermaid):** `uv run python -m app.ai.scripts.print_mermaid` (requires `uv sync --group dev`)
 
 ## Project Structure
 
@@ -67,6 +99,7 @@ The override file adds pgAdmin and volume mounts for hot-reloading the backend.
 nexus-iq/
 ├── app/                 # FastAPI backend
 │   ├── main.py          # Entry point, routers
+│   ├── ai/              # LangGraph coach workflow, dev scripts
 │   ├── routers/         # auth, coach, matches, summoners, users, rag
 │   ├── internal/        # DB, auth, Riot API, vector store
 │   └── dependencies.py  # Env/config

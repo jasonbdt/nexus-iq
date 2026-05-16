@@ -3,7 +3,7 @@
 All routes require an authenticated, active user.  Users can only access
 their own sessions.
 """
-import json
+import time
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
@@ -12,6 +12,8 @@ from fastapi.responses import StreamingResponse
 from langsmith import uuid7
 from sqlmodel import select, desc
 
+from ..ai.graphs.coach_mvp import get_coach_compiled_graph
+from ..ai.sse import format_sse, sse_from_custom_payload
 from ..internal.auth import get_current_active_user
 from ..internal.db import SessionDep
 from ..internal.logging import get_logger
@@ -23,14 +25,7 @@ from ..internal.models import (
     CoachSessionRead,
     User,
 )
-from ..internal.controllers import patches as PatchNotesController
-from ..internal.services.llm import (
-    ConversationHistory,
-    stream_response,
-    determine_patch_versions,
-    extract_keywords,
-)
-from ..internal.services.rag import build_rag_context
+from ..internal.services.llm import ConversationHistory
 
 logger = get_logger(__name__)
 
@@ -46,36 +41,6 @@ def _get_session_or_404(session_id: int, user: User, db: SessionDep) -> CoachSes
     if coach_session is None or coach_session.user_id != user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
     return coach_session
-
-
-def _resolved_question(question: str, history: ConversationHistory) -> str:
-    """Prepend the last few conversation turns so LLM helpers can resolve pronouns."""
-    if not history:
-        return question
-    recent = history[-6:]  # last 3 user+assistant pairs at most
-    turns = "\n".join(
-        f"{'User' if m['role'] == 'user' else 'Assistant'}: {m['content']}"
-        for m in recent
-    )
-    return f"{turns}\nUser: {question}"
-
-
-async def _build_context(
-    question: str,
-    history: ConversationHistory | None = None,
-    top_k: int = 15,
-    *,
-    thread_id: str | None = None,
-) -> str:
-    resolved = _resolved_question(question, history or [])
-    catalog_latest = await PatchNotesController.get_latest_patch_version_float()
-    patch_versions = determine_patch_versions(
-        resolved,
-        catalog_latest_patch=catalog_latest,
-        thread_id=thread_id,
-    )
-    keywords = extract_keywords(resolved, thread_id=thread_id)
-    return await build_rag_context(question, patch_versions, keywords, top_k=top_k)
 
 
 # ── Session CRUD ──────────────────────────────────────────────────────────────
@@ -131,9 +96,16 @@ def get_session(session_id: int, user: CurrentUser, db: SessionDep):
         title=coach_session.title,
         created_at=coach_session.created_at,
         updated_at=coach_session.updated_at,
-        messages=[CoachMessageRead(
-            id=m.id, role=m.role, content=m.content, created_at=m.created_at
-        ) for m in messages],
+        messages=[
+            CoachMessageRead(
+                id=m.id,
+                role=m.role,
+                content=m.content,
+                created_at=m.created_at,
+                thought_seconds=m.thought_seconds,
+            )
+            for m in messages
+        ],
     )
 
 
@@ -170,15 +142,29 @@ def delete_session(session_id: int, user: CurrentUser, db: SessionDep):
 
 # ── Streaming chat ────────────────────────────────────────────────────────────
 
-@router.post("/sessions/{session_id}/chat")
-async def chat_stream(session_id: int, question: str, user: CurrentUser, db: SessionDep):
-    """
-    Append the user's question to the session, stream the AI response as
-    Server-Sent Events, then persist the completed assistant message.
 
-    SSE format:
-      data: {"delta": "<token>"}   — one per token
-      data: [DONE]                 — end of stream
+def _answer_from_updates_payload(data: dict) -> str | None:
+    """Return the first node update's ``answer`` if the key is present (including ``\"\"``)."""
+    for upd in data.values():
+        if isinstance(upd, dict) and "answer" in upd:
+            return str(upd["answer"])
+    return None
+
+
+@router.post("/sessions/{session_id}/chat")
+async def chat_stream(  # pylint: disable=too-many-statements
+    session_id: int, question: str, user: CurrentUser, db: SessionDep
+):
+    """
+    Append the user's question to the session, stream LangGraph pipeline progress
+    and answer tokens as Server-Sent Events, then persist the assistant message.
+
+    SSE events:
+      event: status — data: {"step","label","progress"?}
+      event: reasoning — data: {"text":"..."} (model reasoning summary, meta row only)
+      event: token  — data: {"text":"..."}
+      event: error  — data: {"message","step"?}
+      event: done   — data: {"label"}
     """
     coach_session = _get_session_or_404(session_id, user, db)
 
@@ -209,28 +195,67 @@ async def chat_stream(session_id: int, question: str, user: CurrentUser, db: Ses
     db.refresh(coach_session)
     thread_id = coach_session.langsmith_thread_id
 
-    # Build RAG context, resolving pronouns/references via conversation history
-    context = await _build_context(question, history=history, thread_id=thread_id)
+    graph = get_coach_compiled_graph()
+    initial_state = {
+        "user_message": question,
+        "conversation_history": history,
+        "thread_id": thread_id,
+        "top_k": 15,
+    }
 
-    # Collect the full response while streaming so we can persist it
-    collected: list[str] = []
-
-    def event_generator():
-        for delta in stream_response(
-            question, context, history=history, thread_id=thread_id
-        ):
-            collected.append(delta)
-            yield f"data: {json.dumps({'delta': delta})}\n\n"
-
-        # Persist assistant message after stream completes
-        full_answer = "".join(collected)
-        assistant_msg = CoachMessage(
-            session_id=session_id, role="assistant", content=full_answer
-        )
-        db.add(assistant_msg)
-        db.commit()
-
-        yield "data: [DONE]\n\n"
+    async def event_generator():  # pylint: disable=too-many-branches,too-many-statements
+        collected: list[str] = []
+        backup_answer = ""
+        full_answer: str = ""
+        stream_started_at = time.perf_counter()
+        first_token_at: float | None = None
+        try:
+            # LangGraph v2 ``StreamPart`` dicts (type / ns / data).
+            async for part in graph.astream(
+                initial_state,
+                stream_mode=["custom", "updates"],
+                version="v2",
+            ):
+                if not isinstance(part, dict):
+                    continue
+                st = part.get("type")
+                data = part.get("data")
+                if st == "custom" and isinstance(data, dict):
+                    sse_line = sse_from_custom_payload(data)
+                    if sse_line:
+                        yield sse_line
+                    typ = data.get("type")
+                    if typ == "token":
+                        piece = str(data.get("text", ""))
+                        # collected.append(piece)
+                        if piece and first_token_at is None:
+                            first_token_at = time.perf_counter()
+                elif st == "updates" and isinstance(data, dict):
+                    ans = _answer_from_updates_payload(data)
+                    if ans is not None:
+                        backup_answer = ans
+            full_answer = "".join(collected) if collected else backup_answer
+            yield format_sse("done", {"label": "Done"})
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            logger.exception("Coach graph stream failed")
+            full_answer = "".join(collected) if collected else backup_answer
+            yield format_sse("error", {"message": str(exc), "step": "coach_graph"})
+            yield format_sse("done", {"label": "Done"})
+        finally:
+            if first_token_at is not None:
+                thought_seconds = max(1, int(round(first_token_at - stream_started_at)))
+            else:
+                thought_seconds = max(
+                    1, int(round(time.perf_counter() - stream_started_at))
+                )
+            assistant_msg = CoachMessage(
+                session_id=session_id,
+                role="assistant",
+                content=full_answer,
+                thought_seconds=thought_seconds,
+            )
+            db.add(assistant_msg)
+            db.commit()
 
     return StreamingResponse(
         event_generator(),

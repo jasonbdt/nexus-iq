@@ -3,6 +3,7 @@
 from typing import Annotated
 
 from fastapi import Depends
+from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import create_engine, Session, SQLModel, select
 
@@ -30,9 +31,24 @@ def seed_roles() -> None:
     logger.debug("Roles table seeded successfully")
 
 
+def _ensure_coach_message_thought_seconds() -> None:
+    """Add thought_seconds to coach_messages if missing (create_all does not alter tables)."""
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "ALTER TABLE coach_messages ADD COLUMN IF NOT EXISTS "
+                    "thought_seconds INTEGER"
+                )
+            )
+    except SQLAlchemyError as err:
+        logger.warning("Could not ensure coach_messages.thought_seconds: %s", err)
+
+
 def create_db_and_tables() -> None:
     """Create all database tables and seed initial data."""
     SQLModel.metadata.create_all(engine)
+    _ensure_coach_message_thought_seconds()
     seed_roles()
     logger.debug("Database tables created successfully")
 

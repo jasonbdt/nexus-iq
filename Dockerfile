@@ -22,7 +22,7 @@ ENV UV_NO_DEV=1
 
 RUN --mount=type=cache,target=/root/.cache/uv \
     mkdir -p /usr/src/ddragon/cdn \
-    && uv sync --locked \
+    && uv sync --dev --locked \
     && chown -R app:app /usr/src/app /usr/src/ddragon
 
 EXPOSE 8000

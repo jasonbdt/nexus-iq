@@ -49,7 +49,7 @@ ConversationHistory = list[dict[str, str]]  # [{"role": "user"|"assistant", "con
 
 _RESPONSES_KWARGS = {
     "use_responses_api": True,
-    "output_version": "responses/v1",
+    # "output_version": "responses/v1",
 }
 
 _coach_llm = ChatOpenAI(
@@ -59,9 +59,14 @@ _coach_llm = ChatOpenAI(
     **_RESPONSES_KWARGS,
 )
 
+
+def get_coach_chat_model() -> ChatOpenAI:
+    """Shared coach model for LangGraph nodes and LangChain `create_agent` graphs."""
+    return _coach_llm
+
 _extraction_llm = ChatOpenAI(
     model=OPENAI_CHAT_MODEL,
-    temperature=OPENAI_CHAT_TEMPERATURE,
+    temperature=0.0,
     reasoning={"effort": "none"},
     **_RESPONSES_KWARGS,
 )
@@ -141,6 +146,24 @@ def stream_response(
     """Yield raw text delta strings from a streaming coach response."""
     messages = _coach_messages(question, context, history or [])
     for chunk in _coach_llm.stream(messages, **_invoke_config(thread_id)):
+        msg_chunk = cast(AIMessageChunk, chunk)
+        if getattr(msg_chunk, "chunk_position", None) == "last":
+            continue
+        delta = _text_blocks_join(msg_chunk.content)
+        if delta:
+            yield delta
+
+
+async def astream_response(
+    question: str,
+    context: str | None,
+    history: ConversationHistory | None = None,
+    *,
+    thread_id: str | None = None,
+):
+    """Async-iterate text deltas from the coach model (non-blocking event loop)."""
+    messages = _coach_messages(question, context, history or [])
+    async for chunk in _coach_llm.astream(messages, **_invoke_config(thread_id)):
         msg_chunk = cast(AIMessageChunk, chunk)
         if getattr(msg_chunk, "chunk_position", None) == "last":
             continue

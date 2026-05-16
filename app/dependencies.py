@@ -12,6 +12,7 @@ import os
 
 APP_ENV = os.getenv("APP_ENV", "dev")
 
+OPENAI_API_KEY=os.getenv("OPENAI_API_KEY")
 OPENAI_CHAT_MODEL = os.getenv("OPENAI_CHAT_MODEL", "gpt-5.4-nano-2026-03-17")
 OPENAI_CHAT_TEMPERATURE = float(os.getenv("OPENAI_CHAT_TEMPERATURE", "0.2"))
 OPENAI_REASONING_EFFORT = os.getenv("OPENAI_REASONING_EFFORT", "none").strip().lower()
@@ -23,7 +24,7 @@ DATABASE_URL=f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@nexus-iq-database-1
 
 JWT_SECRET = os.getenv("JWT_SECRET")
 JWT_ALGORITHM = "HS256"
-JWT_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRES_IN"))
+JWT_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRES_IN", 180))
 
 RIOT_API_KEY = os.getenv("RIOT_API_KEY")
 RIOT_API_BASE = "https://!PLATFORM_OR_REGION!.api.riotgames.com"

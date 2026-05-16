@@ -133,7 +133,6 @@
     border-color: rgba(124, 58, 237, 0.25);
 
     .session-item-title { color: #c4b5fd; }
-    .session-item-icon { color: #a78bfa; }
   }
 
   // Show delete button only on hover
@@ -158,14 +157,6 @@
   }
 }
 
-.session-item-icon {
-  font-size: 1rem !important;
-  width: 1rem !important;
-  height: 1rem !important;
-  color: rgba(255, 255, 255, 0.3);
-  flex-shrink: 0;
-}
-
 .session-item-body {
   flex: 1;
   min-width: 0;
@@ -175,15 +166,6 @@
   font-size: 0.8125rem;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.8);
-  margin: 0 0 0.125rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.session-item-meta {
-  font-size: 0.6875rem;
-  color: rgba(255, 255, 255, 0.3);
   margin: 0;
   white-space: nowrap;
   overflow: hidden;
@@ -244,57 +226,10 @@
   font-size: 0.9375rem;
   font-weight: 600;
   color: #fff;
-  margin: 0 0 0.125rem;
+  margin: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.chat-session-meta {
-  font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.35);
-  margin: 0;
-}
-
-.chat-status-badge {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  padding: 0.25rem 0.75rem;
-  border-radius: 9999px;
-  flex-shrink: 0;
-
-  &.active {
-    background: rgba(74, 222, 128, 0.1);
-    color: #4ade80;
-    border: 1px solid rgba(74, 222, 128, 0.2);
-
-    .status-dot { background: #4ade80; }
-  }
-
-  &.thinking {
-    background: rgba(167, 139, 250, 0.1);
-    color: #a78bfa;
-    border: 1px solid rgba(167, 139, 250, 0.2);
-
-    .status-dot {
-      background: #a78bfa;
-      animation: pulse-dot 1s infinite;
-    }
-  }
-}
-
-.status-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-}
-
-@keyframes pulse-dot {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
 }
 
 // ─── Messages ─────────────────────────────────────────────────────────────────
@@ -421,81 +356,61 @@
   transition: color 0.15s;
 }
 
-// ─── Message Rows ─────────────────────────────────────────────────────────────
-.msg-row {
+// ─── Message rows (no avatars; user aligns right) ────────────────────────────
+.msg-row.msg-row--user {
   display: flex;
-  align-items: flex-end;
-  gap: 0.75rem;
-
-  &.msg-user {
-    flex-direction: row-reverse;
-  }
+  justify-content: flex-end;
 }
 
-.msg-avatar {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
+// Assistant turn: status / “Thought for…” then reply (no bubble on meta line)
+.coach-assistant-turn {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.coach-turn-meta {
   font-size: 0.8125rem;
-  font-weight: 700;
-  flex-shrink: 0;
+  line-height: 1.5;
+  padding: 0.125rem 0;
+}
 
-  &.assistant-avatar {
-    background: rgba(124, 58, 237, 0.18);
-    border: 1px solid rgba(124, 58, 237, 0.3);
+.coach-reasoning-summary {
+  margin: 0 0 0.375rem;
+  color: rgba(232, 234, 237, 0.72);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
 
-    mat-icon {
-      font-size: 1.125rem;
-      width: 1.125rem;
-      height: 1.125rem;
-      color: #a78bfa;
-    }
-  }
-
-  &.user-avatar {
-    background: linear-gradient(135deg, #f0b429, #d4930a);
-    color: #050b18;
-  }
+.coach-turn-thought {
+  color: rgba(232, 234, 237, 0.55);
 }
 
 .msg-bubble {
-  max-width: 70%;
-  padding: 0.875rem 1.125rem;
-  border-radius: 18px;
   position: relative;
 
-  .msg-user & {
+  &.msg-bubble--user {
+    max-width: 70%;
+    padding: 0.875rem 1.125rem;
+    border-radius: 18px;
+    margin-left: auto;
     background: rgba(124, 58, 237, 0.2);
     border: 1px solid rgba(124, 58, 237, 0.35);
     border-bottom-right-radius: 4px;
   }
 
-  .msg-assistant & {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-bottom-left-radius: 4px;
+  // Full-width prose on pane background (no bubble chrome)
+  &.msg-bubble--assistant {
+    max-width: 100%;
+    width: 100%;
+    padding: 0.125rem 0;
+    background: transparent;
+    border: none;
+    border-radius: 0;
   }
 
-  // Streaming cursor effect
-  &.streaming .msg-text::after {
-    content: '▋';
-    display: inline-block;
-    animation: blink-cursor 0.7s step-end infinite;
-    color: #a78bfa;
-    margin-left: 1px;
-  }
-
-  // Typing indicator dots (when content is empty)
-  &.streaming:has(.typing-dot) {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 0.875rem 1.25rem;
-    min-width: 64px;
-  }
 }
 
 @keyframes blink-cursor {
@@ -506,37 +421,144 @@
 .msg-text {
   font-size: 0.9rem;
   line-height: 1.65;
-  color: rgba(255, 255, 255, 0.92);
-  margin: 0 0 0.25rem;
+  margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
+  color: #f7f5ff;
 }
 
-.msg-time {
-  font-size: 0.6875rem;
-  color: rgba(255, 255, 255, 0.3);
+// ngx-markdown output is unsanitized DOM (no emulated encapsulation); pierce host
+:host ::ng-deep .msg-bubble--assistant markdown.coach-md {
+  display: block;
+  font-size: 0.9rem;
+  line-height: 1.65;
+  color: #e8eaed;
 
-  .msg-user & {
-    display: block;
-    text-align: right;
+  &:first-child { margin-top: 0; }
+  &:last-child { margin-bottom: 0; }
+
+  p {
+    margin: 0.65em 0;
+    &:first-child { margin-top: 0; }
+    &:last-child { margin-bottom: 0; }
+  }
+
+  h1, h2, h3, h4 {
+    color: #f1f5f9;
+    font-weight: 600;
+    line-height: 1.35;
+    margin: 1.1em 0 0.45em;
+    &:first-child { margin-top: 0; }
+  }
+
+  h1 { font-size: 1.25rem; }
+  h2 { font-size: 1.1rem; }
+  h3 { font-size: 1rem; }
+  h4 { font-size: 0.95rem; }
+
+  ul, ol {
+    margin: 0.5em 0;
+    padding-left: 1.35rem;
+  }
+
+  li { margin: 0.25em 0; }
+
+  a {
+    color: #c4b5fd;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+
+    &:hover { color: #ddd6fe; }
+  }
+
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.86em;
+    padding: 0.12em 0.35em;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #e9d5ff;
+  }
+
+  pre {
+    margin: 0.75em 0;
+    padding: 0.85rem 1rem;
+    border-radius: 10px;
+    background: rgba(5, 11, 24, 0.65);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    overflow-x: auto;
+
+    code {
+      padding: 0;
+      background: transparent;
+      color: #e8eaed;
+      font-size: 0.8125rem;
+    }
+  }
+
+  blockquote {
+    margin: 0.65em 0;
+    padding: 0.35rem 0 0.35rem 0.85rem;
+    border-left: 3px solid rgba(167, 139, 250, 0.55);
+    color: rgba(232, 234, 237, 0.88);
+  }
+
+  hr {
+    border: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    margin: 1rem 0;
+  }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 0.75em 0;
+    font-size: 0.875rem;
+  }
+
+  th, td {
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    padding: 0.4rem 0.55rem;
+    text-align: left;
+  }
+
+  th {
+    background: rgba(255, 255, 255, 0.06);
+    color: #f1f5f9;
   }
 }
 
-// ─── Typing dots ─────────────────────────────────────────────────────────────
-.typing-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: rgba(167, 139, 250, 0.6);
-  animation: typing-bounce 1.2s infinite ease-in-out;
-
-  &:nth-child(2) { animation-delay: 0.2s; }
-  &:nth-child(3) { animation-delay: 0.4s; }
+:host ::ng-deep .msg-bubble--assistant.streaming markdown.coach-md::after {
+  content: '▋';
+  display: inline-block;
+  animation: blink-cursor 0.7s step-end infinite;
+  color: #a78bfa;
+  margin-left: 1px;
 }
 
-@keyframes typing-bounce {
-  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
-  30% { transform: translateY(-6px); opacity: 1; }
+// Shimmer on pipeline status (CodePen-style gradient text sweep)
+.coach-status-shimmer {
+  font-size: 0.9rem;
+  line-height: 1.65;
+  font-weight: 500;
+  color: transparent;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.35) 0%,
+    rgba(255, 255, 255, 0.35) 40%,
+    rgba(196, 181, 253, 0.95) 50%,
+    rgba(255, 255, 255, 0.35) 60%,
+    rgba(255, 255, 255, 0.35) 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: coach-status-shimmer 5s linear infinite;
+}
+
+@keyframes coach-status-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 // ─── Input Area ───────────────────────────────────────────────────────────────

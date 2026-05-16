@@ -8,7 +8,6 @@ import {
   ViewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { DatePipe } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -19,6 +18,7 @@ import { NavbarComponent } from '../../shared/components/navbar/navbar.component
 import { LoginModalComponent } from '../../shared/components/login-modal/login-modal.component';
 import { RegisterModalComponent } from '../../shared/components/register-modal/register-modal.component';
 import { MatDialog } from '@angular/material/dialog';
+import { MarkdownComponent } from 'ngx-markdown';
 import { ChatMessage, ChatSession } from '../../core/models';
 
 const SUGGESTED_QUESTIONS = [
@@ -34,11 +34,11 @@ const SUGGESTED_QUESTIONS = [
   selector: 'app-coach',
   imports: [
     FormsModule,
-    DatePipe,
     MatButtonModule,
     MatIconModule,
     MatProgressSpinnerModule,
     MatTooltipModule,
+    MarkdownComponent,
     NavbarComponent,
   ],
   templateUrl: './coach.component.html',
@@ -56,6 +56,8 @@ export class CoachComponent implements OnInit {
   readonly activeSessionId = signal<string | null>(null);
   readonly inputText = signal('');
   readonly loading = signal(false);
+  /** Pipeline step label for the in-flight assistant turn (plain text above the reply bubble). */
+  readonly pipelineStatus = signal<string | null>(null);
   readonly loadingSessions = signal(false);
   readonly loadingMessages = signal(false);
   readonly suggestedQuestions = SUGGESTED_QUESTIONS;
@@ -187,6 +189,7 @@ export class CoachComponent implements OnInit {
     }
 
     this.inputText.set('');
+    this.pipelineStatus.set(null);
     this.loading.set(true);
     this.scrollToBottom();
 
@@ -205,25 +208,45 @@ export class CoachComponent implements OnInit {
 
   private async runStream(sessionId: string, numericId: number, question: string): Promise<void> {
     const token = this.authService.token() ?? '';
+    const streamStartedAt = Date.now();
     try {
-      for await (const delta of this.chatService.chatStream(numericId, question, token)) {
+      for await (const ev of this.chatService.chatStream(numericId, question, token)) {
         this.zone.run(() => {
-          this.updateLastAssistantMessage(sessionId, (prev) => prev + delta);
-          this.scrollToBottom();
+          if (ev.kind === 'status') {
+            this.pipelineStatus.set(ev.label);
+          } else if (ev.kind === 'reasoning' && ev.text) {
+            this.updateLastAssistantReasoning(sessionId, ev.text);
+            this.scrollToBottom();
+          } else if (ev.kind === 'token' && ev.text) {
+            this.updateLastAssistantMessage(
+              sessionId,
+              (prev) => prev + ev.text,
+              streamStartedAt,
+            );
+            this.scrollToBottom();
+          } else if (ev.kind === 'error') {
+            this.updateLastAssistantMessage(sessionId, () => ev.message, streamStartedAt);
+            this.pipelineStatus.set(null);
+          }
         });
       }
       this.zone.run(() => {
-        this.finalizeAssistantMessage(sessionId);
+        const thoughtSeconds = Math.max(1, Math.round((Date.now() - streamStartedAt) / 1000));
+        this.finalizeAssistantMessage(sessionId, thoughtSeconds);
+        this.pipelineStatus.set(null);
         this.loading.set(false);
         this.scrollToBottom();
       });
     } catch {
       this.zone.run(() => {
+        const thoughtSeconds = Math.max(1, Math.round((Date.now() - streamStartedAt) / 1000));
         this.updateLastAssistantMessage(
           sessionId,
           () => 'Sorry, I encountered an error. Please try again.',
+          streamStartedAt,
         );
-        this.finalizeAssistantMessage(sessionId);
+        this.finalizeAssistantMessage(sessionId, thoughtSeconds);
+        this.pipelineStatus.set(null);
         this.loading.set(false);
       });
     }
@@ -256,6 +279,24 @@ export class CoachComponent implements OnInit {
     );
   }
 
+  private updateLastAssistantReasoning(sessionId: string, textDelta: string): void {
+    this.sessions.update((sessions) =>
+      sessions.map((s) => {
+        if (s.id !== sessionId) return s;
+        const msgs = [...s.messages];
+        const lastIdx = msgs.length - 1;
+        if (lastIdx >= 0 && msgs[lastIdx].role === 'assistant') {
+          const prev = msgs[lastIdx].reasoningSummary ?? '';
+          msgs[lastIdx] = {
+            ...msgs[lastIdx],
+            reasoningSummary: prev + textDelta,
+          };
+        }
+        return { ...s, messages: msgs, updatedAt: new Date() };
+      }),
+    );
+  }
+
   private updateSessionTitle(id: string, title: string): void {
     this.sessions.update((sessions) =>
       sessions.map((s) => (s.id === id ? { ...s, title } : s)),
@@ -265,6 +306,7 @@ export class CoachComponent implements OnInit {
   private updateLastAssistantMessage(
     sessionId: string,
     contentUpdater: (prev: string) => string,
+    streamStartedAt?: number,
   ): void {
     this.sessions.update((sessions) =>
       sessions.map((s) => {
@@ -272,9 +314,22 @@ export class CoachComponent implements OnInit {
         const msgs = [...s.messages];
         const lastIdx = msgs.length - 1;
         if (lastIdx >= 0 && msgs[lastIdx].role === 'assistant') {
+          const prevMsg = msgs[lastIdx];
+          const prev = prevMsg.content;
+          const newContent = contentUpdater(prev);
+          let nextThought = prevMsg.thoughtSeconds;
+          if (
+            streamStartedAt != null &&
+            nextThought == null &&
+            prev === '' &&
+            newContent !== ''
+          ) {
+            nextThought = Math.max(1, Math.round((Date.now() - streamStartedAt) / 1000));
+          }
           msgs[lastIdx] = {
-            ...msgs[lastIdx],
-            content: contentUpdater(msgs[lastIdx].content),
+            ...prevMsg,
+            content: newContent,
+            ...(nextThought != null ? { thoughtSeconds: nextThought } : {}),
           };
         }
         return { ...s, messages: msgs, updatedAt: new Date() };
@@ -282,13 +337,20 @@ export class CoachComponent implements OnInit {
     );
   }
 
-  private finalizeAssistantMessage(sessionId: string): void {
+  private finalizeAssistantMessage(sessionId: string, fallbackThoughtSeconds?: number): void {
     this.sessions.update((sessions) =>
       sessions.map((s) => {
         if (s.id !== sessionId) return s;
-        const msgs = s.messages.map((m) =>
-          m.streaming ? { ...m, streaming: false } : m,
-        );
+        const msgs = s.messages.map((m) => {
+          if (!m.streaming) return m;
+          const thoughtSeconds = m.thoughtSeconds ?? fallbackThoughtSeconds;
+          return {
+            ...m,
+            streaming: false,
+            reasoningSummary: undefined,
+            ...(thoughtSeconds != null ? { thoughtSeconds } : {}),
+          };
+        });
         return { ...s, messages: msgs };
       }),
     );

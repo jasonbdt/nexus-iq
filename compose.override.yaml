@@ -1,5 +1,10 @@
 services:
   backend:
+    command: [
+      "uv", "run",
+      "-m", "debugpy", "--listen", "0.0.0.0:5678",
+      "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/usr/src/app"
+    ]
     develop:
       watch:
         - action: sync
@@ -11,6 +16,9 @@ services:
           path: ./pyproject.toml
     environment:
       SKIP_DDRAGON_CHOWN: "1"
+    ports:
+      - 8000:8000
+      - 5678:5678
     volumes:
       - ./app:/usr/src/app
       - ./ddragon:/usr/src/ddragon

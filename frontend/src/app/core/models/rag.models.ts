@@ -12,6 +12,10 @@ export interface ChatMessage {
   content: string;
   timestamp: Date;
   streaming?: boolean;
+  /** Model reasoning summary, shown in the meta row while streaming (not persisted). */
+  reasoningSummary?: string;
+  /** Seconds from request start until first answer token (assistant only). */
+  thoughtSeconds?: number;
 }
 
 export interface ChatSession {
