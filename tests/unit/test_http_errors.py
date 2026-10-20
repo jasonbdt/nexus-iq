@@ -3,8 +3,8 @@
 import pytest
 from fastapi import HTTPException
 
-from app.internal.riot_api.http_errors import riot_exception_to_http
-from app.internal.riot_api.exceptions import (
+from app.entrypoints.http.riot_errors import riot_exception_to_http
+from app.adapters.riot_api.exceptions import (
     RiotAPINotFoundError,
     RiotAPIValidationError,
     RiotAPIAuthenticationError,

@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.internal.riot_api.config import (
+from app.adapters.riot_api.config import (
     REGION_TO_PLATFORM,
     PLATFORM_TO_REGION,
     RiotPlatform,

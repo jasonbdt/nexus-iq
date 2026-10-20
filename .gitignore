@@ -6,3 +6,5 @@ __pycache__
 .cursor
 .coverage
 htmlcov
+
+.test-artifacts/

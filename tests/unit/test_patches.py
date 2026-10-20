@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.internal.controllers.patches import chunk_text
+from app.adapters.patch_notes import chunk_text
 
 
 def test_chunk_text_empty_or_short_returns_single_chunk():

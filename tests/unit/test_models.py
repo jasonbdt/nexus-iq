@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.internal.models import MatchParticipant
+from app.domain.models import MatchParticipant
 
 
 def test_match_participant_kda_zero_deaths():
@@ -13,6 +13,9 @@ def test_match_participant_kda_zero_deaths():
         champion_id=1,
         champion_name="Test",
         lane="MID",
+        summoner_name="Test", tag_line="EUW", champion_level=18,
+        summoner_spell_1=4, summoner_spell_2=14,
+        item0=0, item1=0, item2=0, item3=0, item4=0, item5=0, item6=0,
         kills=10,
         deaths=0,
         assists=5,
@@ -42,6 +45,9 @@ def test_match_participant_kda_with_deaths():
         champion_id=1,
         champion_name="Test",
         lane="MID",
+        summoner_name="Test", tag_line="EUW", champion_level=18,
+        summoner_spell_1=4, summoner_spell_2=14,
+        item0=0, item1=0, item2=0, item3=0, item4=0, item5=0, item6=0,
         kills=10,
         deaths=4,
         assists=5,
@@ -71,6 +77,9 @@ def test_match_participant_total_cs():
         champion_id=1,
         champion_name="Test",
         lane="MID",
+        summoner_name="Test", tag_line="EUW", champion_level=18,
+        summoner_spell_1=4, summoner_spell_2=14,
+        item0=0, item1=0, item2=0, item3=0, item4=0, item5=0, item6=0,
         kills=0,
         deaths=0,
         assists=0,

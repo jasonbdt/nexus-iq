@@ -17,6 +17,10 @@ NexusIQ is an experimental AI coach for League of Legends players. The goal: tur
 - **Frontend** (Angular 21, Tailwind, SSR-capable): SPA with dev proxy and prod Nginx
 - **Services**: `backend`, `frontend`, `database` (Postgres 18), `qdrant`; optional `pgadmin` via `compose.override.yaml`
 
+The backend separates its domain, application operations, adapters and entrypoints.
+See [Backend architecture](docs/backend-architecture.md) for dependency boundaries,
+transaction rules, integration checks and rollout instructions.
+
 ```mermaid
 flowchart TB
     subgraph docker [Docker Compose]
@@ -57,7 +61,7 @@ The override file adds pgAdmin and volume mounts for hot-reloading the backend.
 
 ## Unit Tests and Linting
 
-- **Backend tests:** `pytest` (from repo root; `tests/conftest.py` sets env defaults)
+- **Backend tests:** `uv run --no-sync pytest` (from repo root; isolated databases and fake external ports)
 - **Frontend tests:** `cd frontend && ng test` (Vitest)
 - **Backend lint:** `pylint app/` (from repo root)
 
@@ -66,10 +70,13 @@ The override file adds pgAdmin and volume mounts for hot-reloading the backend.
 ```
 nexus-iq/
 ├── app/                 # FastAPI backend
-│   ├── main.py          # Entry point, routers
-│   ├── routers/         # auth, coach, matches, summoners, users, rag
-│   ├── internal/        # DB, auth, Riot API, vector store
-│   └── dependencies.py  # Env/config
+│   ├── main.py          # FastAPI factory and stable app.main:app entrypoint
+│   ├── domain/          # Independent entities, errors and business policies
+│   ├── service_layer/   # Application operations and typed ports
+│   ├── adapters/        # Persistence, Riot, Redis/RQ, AI and DDragon
+│   ├── entrypoints/     # HTTP contracts, streaming and worker entry functions
+│   ├── bootstrap.py     # Dependency composition and resource ownership
+│   └── config.py        # Environment settings loaded on startup
 ├── frontend/            # Angular 21 app
 │   ├── src/app/         # Components, services, routes
 │   └── proxy.conf.json  # Dev proxy to backend

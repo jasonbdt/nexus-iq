@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 
 const CDN_BASE = '/api/v1/cdn';
-const DDragon_BASE = `${CDN_BASE}/16.7.1/img`;
+const DDragon_BASE = `${CDN_BASE}/16.20.1/img`;
 
 /**
  * Provides URLs for DDragon static assets served through the backend.
