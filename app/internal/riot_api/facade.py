@@ -187,7 +187,6 @@ class RiotAPIFacade:
 
         return [
             SummonerLeagueInfo(
-                league_id=entry.league_id,
                 queue_type=entry.queue_type,
                 tier=entry.tier,
                 rank=entry.rank,

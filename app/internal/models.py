@@ -172,7 +172,6 @@ class SummonerLeagues(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     summoner_id: int | None = Field(nullable=False, foreign_key="summoners.id")
-    league_id: str = Field(index=True, nullable=False)
 
     queue_type: str = Field(nullable=False)
     tier: str = Field(nullable=False)
@@ -546,7 +545,6 @@ class MatchesRead(BaseModel):
 class SummonerLeaguesRead(BaseModel):
     """Read schema for a summoner league entry."""
 
-    league_id: str
     queue_type: str
     tier: str
     rank: str

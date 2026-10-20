@@ -147,10 +147,19 @@
                   <div class="rank-card-tier">{{ fq.tier }} {{ fq.rank }}</div>
                   <div class="rank-card-stats">
                     <span>{{ fq.wins }}W {{ fq.losses }}L</span>
-                    <span class="win-rate-text">{{ (fq.win_rate * 100).toFixed(0) }}% WR</span>
+                    <span class="win-rate-text">{{ fq.win_rate.toFixed(0) }}% WR</span>
                   </div>
                   <div class="rank-progress">
-                    <div class="rank-progress-fill" [style.width.%]="fq.win_rate * 100"></div>
+                    <div class="rank-progress-fill" [style.width.%]="fq.win_rate"></div>
+                  </div>
+                </div>
+              } @else {
+                <div class="rank-card-sm">
+                  <p class="rank-card-label">Flex 5v5</p>
+                  <div class="rank-card-tier">Unranked</div>
+                  <div class="rank-card-stats">
+                    <span>0W 0L</span>
+                    <span class="win-rate-text">0% WR</span>
                   </div>
                 </div>
               }

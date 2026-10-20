@@ -35,6 +35,7 @@ export class DashboardComponent implements OnInit {
   readonly summoner = signal<SummonerSearch | null>(null);
   readonly recentMatches = signal<MatchesRead[]>([]);
   readonly loadingSummoner = signal(false);
+  readonly summonerError = signal('');
   readonly loadingMatches = signal(false);
 
   readonly soloQueue = signal<LeagueEntry | null>(null);
@@ -66,8 +67,13 @@ export class DashboardComponent implements OnInit {
             this.summoner.set(s);
             this.loadingSummoner.set(false);
           },
-          error: () => this.loadingSummoner.set(false),
+          error: () => {
+            this.summonerError.set('Unable to load ranked data. Please try again later.');
+            this.loadingSummoner.set(false);
+          },
         });
+      } else {
+        this.summonerError.set('Unable to load the linked player account.');
       }
     }
   }

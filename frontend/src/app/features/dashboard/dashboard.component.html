@@ -70,6 +70,15 @@
             <span class="stat-value">{{ sq.wins }}W / {{ sq.losses }}L</span>
           </div>
         </div>
+      } @else if (summonerError()) {
+        <div class="rank-empty" role="alert">
+          <p>{{ summonerError() }}</p>
+        </div>
+      } @else if (summoner()) {
+        <div class="rank-empty">
+          <p>Unranked</p>
+          <p class="rank-empty-hint">No Solo/Duo ranked games yet.</p>
+        </div>
       } @else {
         <div class="rank-empty">
           <p>No ranked data yet.</p>

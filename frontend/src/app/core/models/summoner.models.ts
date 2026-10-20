@@ -1,5 +1,4 @@
 export interface LeagueEntry {
-  league_id: string;
   queue_type: string;
   tier: string;
   rank: string;

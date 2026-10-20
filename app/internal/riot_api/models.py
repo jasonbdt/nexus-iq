@@ -67,7 +67,6 @@ class SummonerInfo(RiotModel):
 
 class LeagueEntry(RiotModel):
     """Response model for league/v4 entries."""
-    league_id: str = Field(alias="leagueId")
     queue_type: str = Field(alias="queueType")
     tier: str
     rank: str
@@ -313,7 +312,6 @@ class SummonerLeagueInfo(BaseModel):
 
     Simplified version of LeagueEntry for the facade layer.
     """
-    league_id: str
     queue_type: str
     tier: str
     rank: str

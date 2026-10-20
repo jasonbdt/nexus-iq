@@ -95,7 +95,6 @@ async def create(
 
     if not summoner_in_db:
         summoner_leagues = [SummonerLeagues(
-            league_id=league.league_id,
             queue_type=league.queue_type,
             tier=league.tier,
             rank=league.rank,
@@ -161,7 +160,6 @@ async def find_or_create_by_puuid(
         if not summoner_in_db:
             summoner_leagues = [
                 SummonerLeagues(
-                    league_id=league.league_id,
                     queue_type=league.queue_type,
                     tier=league.tier,
                     rank=league.rank,
@@ -193,35 +191,35 @@ def update_leagues(
     leagues: list[LeagueEntry],
     session: SessionDep
 ) -> None:
-    """Sync a summoner's league entries with the latest data from Riot."""
-    leagues_at_riot = [SummonerLeagues(
-        league_id=league.league_id,
-        queue_type=league.queue_type,
-        tier=league.tier,
-        rank=league.rank,
-        wins=league.wins,
-        losses=league.losses,
-        league_points=league.league_points
-    ) for league in leagues]
+    """Sync ranked queues, preserving row IDs; an empty list means unranked.
 
-    for index, league in enumerate(summoner.leagues):
-        summoner_league = list(filter(
-            lambda rl, lid=league.league_id: rl.league_id == lid,
-            leagues_at_riot
-        ))
+    The caller commits the complete profile update in one transaction.
+    """
+    entries_by_queue = {entry.queue_type: entry for entry in leagues}
+    retained_queues = set()
+    for league in list(summoner.leagues):
+        entry = entries_by_queue.get(league.queue_type)
+        if entry is None or league.queue_type in retained_queues:
+            summoner.leagues.remove(league)
+            session.delete(league)
+            continue
+        for field in ("tier", "rank", "wins", "losses", "league_points"):
+            setattr(league, field, getattr(entry, field))
+        retained_queues.add(league.queue_type)
+        session.add(league)
 
-        # Delete old leagues
-        if not summoner_league:
-            session.delete(summoner.leagues[index])
-            summoner.leagues = leagues_at_riot
-        else:
-            summoner_league = summoner_league[0]
-            league.wins = summoner_league.wins
-            league.losses = summoner_league.losses
-            league.league_points = summoner_league.league_points
-
+    for queue_type, entry in entries_by_queue.items():
+        if queue_type not in retained_queues:
+            league = SummonerLeagues(
+                queue_type=queue_type,
+                tier=entry.tier,
+                rank=entry.rank,
+                wins=entry.wins,
+                losses=entry.losses,
+                league_points=entry.league_points,
+            )
+            summoner.leagues.append(league)
             session.add(league)
-            session.commit()
 
 
 def get_participant_runes(
