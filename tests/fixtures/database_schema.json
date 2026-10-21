@@ -1,0 +1,980 @@
+{
+  "coach_messages": {
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": true
+      },
+      {
+        "name": "session_id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "role",
+        "type": "VARCHAR",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "content",
+        "type": "VARCHAR",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false
+      }
+    ],
+    "foreign_keys": [
+      "coach_sessions.id"
+    ],
+    "unique": [],
+    "indexes": [
+      [
+        "ix_coach_messages_session_id",
+        false,
+        [
+          "session_id"
+        ]
+      ]
+    ]
+  },
+  "coach_sessions": {
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": true
+      },
+      {
+        "name": "user_id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "title",
+        "type": "VARCHAR(200)",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false
+      }
+    ],
+    "foreign_keys": [
+      "users.id"
+    ],
+    "unique": [],
+    "indexes": [
+      [
+        "ix_coach_sessions_user_id",
+        false,
+        [
+          "user_id"
+        ]
+      ]
+    ]
+  },
+  "match_participant_runes": {
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": true
+      },
+      {
+        "name": "participant_id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "primary_style",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "primary_perk0",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "primary_perk1",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "primary_perk2",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "primary_perk3",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "secondary_style",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "secondary_perk0",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "secondary_perk1",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "stat_perk_defense",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "stat_perk_flex",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "stat_perk_offense",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      }
+    ],
+    "foreign_keys": [
+      "match_participants.id"
+    ],
+    "unique": [],
+    "indexes": [
+      [
+        "ix_match_participant_runes_participant_id",
+        false,
+        [
+          "participant_id"
+        ]
+      ],
+      [
+        "ix_match_participant_runes_primary_style",
+        false,
+        [
+          "primary_style"
+        ]
+      ],
+      [
+        "ix_match_participant_runes_secondary_style",
+        false,
+        [
+          "secondary_style"
+        ]
+      ]
+    ]
+  },
+  "match_participants": {
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": true
+      },
+      {
+        "name": "match_id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "team_id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "summoner_puuid",
+        "type": "VARCHAR",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "summoner_name",
+        "type": "VARCHAR",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "tag_line",
+        "type": "VARCHAR",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "champion_id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "champion_name",
+        "type": "VARCHAR",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "champion_level",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "lane",
+        "type": "VARCHAR",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "summoner_spell_1",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "summoner_spell_2",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "kills",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "deaths",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "assists",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "double_kills",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "triple_kills",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "quadra_kills",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "penta_kills",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "largest_multi_kill",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "damage_dealt_to_champions",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "damage_taken",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "total_minions_killed",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "neutral_minions_killed",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "gold_earned",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "vision_score",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "wards_placed",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "wards_killed",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "vision_wards_bought",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "item0",
+        "type": "INTEGER",
+        "nullable": true,
+        "primary_key": false
+      },
+      {
+        "name": "item1",
+        "type": "INTEGER",
+        "nullable": true,
+        "primary_key": false
+      },
+      {
+        "name": "item2",
+        "type": "INTEGER",
+        "nullable": true,
+        "primary_key": false
+      },
+      {
+        "name": "item3",
+        "type": "INTEGER",
+        "nullable": true,
+        "primary_key": false
+      },
+      {
+        "name": "item4",
+        "type": "INTEGER",
+        "nullable": true,
+        "primary_key": false
+      },
+      {
+        "name": "item5",
+        "type": "INTEGER",
+        "nullable": true,
+        "primary_key": false
+      },
+      {
+        "name": "item6",
+        "type": "INTEGER",
+        "nullable": true,
+        "primary_key": false
+      }
+    ],
+    "foreign_keys": [
+      "match_teams.id",
+      "matches.id"
+    ],
+    "unique": [],
+    "indexes": [
+      [
+        "ix_match_participants_summoner_puuid",
+        false,
+        [
+          "summoner_puuid"
+        ]
+      ]
+    ]
+  },
+  "match_team_bans": {
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": true
+      },
+      {
+        "name": "team_id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "champion_id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "pick_turn",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      }
+    ],
+    "foreign_keys": [
+      "match_teams.id"
+    ],
+    "unique": [],
+    "indexes": []
+  },
+  "match_team_objectives": {
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": true
+      },
+      {
+        "name": "team_id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "objective",
+        "type": "VARCHAR",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "first",
+        "type": "BOOLEAN",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "kills",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      }
+    ],
+    "foreign_keys": [
+      "match_teams.id"
+    ],
+    "unique": [],
+    "indexes": []
+  },
+  "match_teams": {
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": true
+      },
+      {
+        "name": "match_id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "team_id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "win",
+        "type": "BOOLEAN",
+        "nullable": false,
+        "primary_key": false
+      }
+    ],
+    "foreign_keys": [
+      "matches.id"
+    ],
+    "unique": [],
+    "indexes": []
+  },
+  "matches": {
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": true
+      },
+      {
+        "name": "match_id",
+        "type": "VARCHAR",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "platform",
+        "type": "VARCHAR",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "queue_id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "game_mode",
+        "type": "VARCHAR",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "game_type",
+        "type": "VARCHAR",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "game_version",
+        "type": "VARCHAR",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "map_id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "game_start",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "game_end",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false
+      },
+      {
+        "name": "game_duration",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      }
+    ],
+    "foreign_keys": [],
+    "unique": [],
+    "indexes": [
+      [
+        "ix_matches_match_id",
+        true,
+        [
+          "match_id"
+        ]
+      ]
+    ]
+  },
+  "roles": {
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": true
+      },
+      {
+        "name": "name",
+        "type": "VARCHAR(32)",
+        "nullable": false,
+        "primary_key": false
+      }
+    ],
+    "foreign_keys": [],
+    "unique": [],
+    "indexes": [
+      [
+        "ix_roles_name",
+        true,
+        [
+          "name"
+        ]
+      ]
+    ]
+  },
+  "summoner_leagues": {
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": true
+      },
+      {
+        "name": "summoner_id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "queue_type",
+        "type": "VARCHAR",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "tier",
+        "type": "VARCHAR",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "rank",
+        "type": "VARCHAR",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "wins",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "losses",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "league_points",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      }
+    ],
+    "foreign_keys": [
+      "summoners.id"
+    ],
+    "unique": [],
+    "indexes": []
+  },
+  "summoners": {
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": true
+      },
+      {
+        "name": "puuid",
+        "type": "VARCHAR(78)",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "region",
+        "type": "VARCHAR(4)",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "summoner_name",
+        "type": "VARCHAR(64)",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "tag_line",
+        "type": "VARCHAR(10)",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "summoner_level",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "profile_icon",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "revision_date",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false
+      }
+    ],
+    "foreign_keys": [],
+    "unique": [],
+    "indexes": [
+      [
+        "ix_summoners_puuid",
+        true,
+        [
+          "puuid"
+        ]
+      ],
+      [
+        "ix_summoners_summoner_name",
+        false,
+        [
+          "summoner_name"
+        ]
+      ],
+      [
+        "ix_summoners_tag_line",
+        false,
+        [
+          "tag_line"
+        ]
+      ]
+    ]
+  },
+  "user_roles": {
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": true
+      },
+      {
+        "name": "user_id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "role_id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "assigned_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false
+      }
+    ],
+    "foreign_keys": [
+      "roles.id",
+      "users.id"
+    ],
+    "unique": [],
+    "indexes": [
+      [
+        "ix_user_roles_role_id",
+        false,
+        [
+          "role_id"
+        ]
+      ],
+      [
+        "ix_user_roles_user_id",
+        true,
+        [
+          "user_id"
+        ]
+      ]
+    ]
+  },
+  "user_summoner_links": {
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": true
+      },
+      {
+        "name": "user_id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "link_slot",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "summoner_puuid",
+        "type": "VARCHAR",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "linked_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false
+      }
+    ],
+    "foreign_keys": [
+      "summoners.puuid",
+      "users.id"
+    ],
+    "unique": [
+      [
+        "link_slot",
+        "user_id"
+      ]
+    ],
+    "indexes": [
+      [
+        "ix_user_summoner_links_link_slot",
+        false,
+        [
+          "link_slot"
+        ]
+      ],
+      [
+        "ix_user_summoner_links_user_id",
+        false,
+        [
+          "user_id"
+        ]
+      ]
+    ]
+  },
+  "users": {
+    "columns": [
+      {
+        "name": "id",
+        "type": "INTEGER",
+        "nullable": false,
+        "primary_key": true
+      },
+      {
+        "name": "avatarName",
+        "type": "VARCHAR",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "emailAddress",
+        "type": "VARCHAR",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "password",
+        "type": "VARCHAR",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "is_active",
+        "type": "BOOLEAN",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "language",
+        "type": "VARCHAR(10)",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "subscription_tier",
+        "type": "VARCHAR(32)",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "primary_key": false
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "primary_key": false
+      }
+    ],
+    "foreign_keys": [],
+    "unique": [
+      [
+        "emailAddress"
+      ]
+    ],
+    "indexes": [
+      [
+        "ix_users_avatarName",
+        false,
+        [
+          "avatarName"
+        ]
+      ]
+    ]
+  }
+}

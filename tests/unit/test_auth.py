@@ -1,47 +1,35 @@
-"""Unit tests for auth module."""
-
+"""Password and token contract regression tests."""
+from datetime import datetime, timezone
+import jwt
 import pytest
-from datetime import timedelta
-from unittest.mock import patch
-
-from app.internal.auth import (
-    create_access_token,
-    verify_password,
-    get_password_hash,
-)
+from app.adapters.security import SecurityAdapter
 
 
-def test_create_access_token_default_expiry():
-    with patch("app.internal.auth.JWT_SECRET", "test-secret"):
-        with patch("app.internal.auth.JWT_ALGORITHM", "HS256"):
-            token = create_access_token({"sub": "user@test.com"})
-            assert isinstance(token, str)
-            assert len(token) > 0
+@pytest.mark.parametrize('minutes', [15, 60])
+def test_token_claims_and_expiry(minutes):
+    security = SecurityAdapter('test-secret', minutes)
+    token = security.token('user@test.com', 'member')
+    decoded = jwt.decode(token, 'test-secret', algorithms=['HS256'])
+    assert decoded['sub'] == 'user@test.com'
+    assert decoded['role'] == 'member'
+    assert abs(decoded['exp'] - datetime.now(timezone.utc).timestamp() - minutes * 60) < 2
+    assert security.subject(token) == 'user@test.com'
 
 
-def test_create_access_token_custom_expiry():
-    with patch("app.internal.auth.JWT_SECRET", "test-secret"):
-        with patch("app.internal.auth.JWT_ALGORITHM", "HS256"):
-            token = create_access_token(
-                {"sub": "user@test.com"},
-                expires_delta=timedelta(minutes=60),
-            )
-            assert isinstance(token, str)
+def test_password_verification_and_random_salts():
+    security = SecurityAdapter('test-secret')
+    first = security.hash_password('same_password')
+    second = security.hash_password('same_password')
+    assert first != second
+    assert security.verify_password('same_password', first)
+    assert security.verify_password('same_password', second)
+    assert not security.verify_password('wrong', first)
+    assert not security.verify_password('same_password', 'unknown-format')
 
 
-def test_verify_password_correct():
-    hashed = get_password_hash("correct_password")
-    assert verify_password("correct_password", hashed) is True
-
-
-def test_verify_password_incorrect():
-    hashed = get_password_hash("correct_password")
-    assert verify_password("wrong_password", hashed) is False
-
-
-def test_get_password_hash_produces_different_hashes():
-    h1 = get_password_hash("same_password")
-    h2 = get_password_hash("same_password")
-    assert h1 != h2  # bcrypt uses random salt
-    assert verify_password("same_password", h1)
-    assert verify_password("same_password", h2)
+def test_invalid_tokens_are_rejected():
+    security = SecurityAdapter('test-secret')
+    expired = SecurityAdapter('test-secret', -1).token('test@example.test', 'member')
+    assert security.subject(expired) is None
+    assert security.subject('invalid') is None
+    assert SecurityAdapter('other-secret').subject(security.token('test@test.com', 'member')) is None
